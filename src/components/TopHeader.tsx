@@ -99,7 +99,7 @@ export const TopHeader: React.FC<TopHeaderProps> = ({
         <div className="min-w-0 flex-1 pr-1 sm:pr-2">
           <div className="flex items-center gap-2">
             <img
-              src="/assets/uniuyo-logo.png"
+              src={`${import.meta.env.BASE_URL}assets/uniuyo-logo.png`}
               alt="University of Uyo logo"
               className="h-8 w-8 shrink-0 rounded-lg border border-slate-200 bg-white p-1 object-contain sm:hidden"
             />

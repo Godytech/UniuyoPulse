@@ -52,7 +52,7 @@ function toStudentDetail(uid: string, user: AuthUser | User): StudentDetail {
     ...(user.faculty === undefined ? {} : { faculty: user.faculty }),
     level: user.level,
     email: user.email,
-    avatar: user.avatar || '/assets/uniuyo-logo.png',
+    avatar: user.avatar || `${import.meta.env.BASE_URL}assets/uniuyo-logo.png`,
     ...(user.semester === undefined ? {} : { semester: user.semester }),
     ...(user.academicSession === undefined ? {} : { academicSession: user.academicSession }),
     attendanceRate: 0,
@@ -230,7 +230,7 @@ export async function updateFirebaseUserProfile(user: User): Promise<void> {
   batch.update(doc(firestore, USER_PROFILES, user.id), profile);
   batch.set(
     doc(firestore, STUDENTS, user.id),
-    { id: user.id, role: user.role, ...profile, email: user.email, avatar: user.avatar || '/assets/uniuyo-logo.png' },
+    { id: user.id, role: user.role, ...profile, email: user.email, avatar: user.avatar || `${import.meta.env.BASE_URL}assets/uniuyo-logo.png` },
     { merge: true }
   );
   await batch.commit();

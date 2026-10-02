@@ -61,7 +61,7 @@ export const MobileNav: React.FC<MobileNavProps> = ({
         {/* Center Logo */}
         <div className="flex items-center gap-1.5 cursor-pointer" onClick={() => onTabChange('home')}>
           <img
-            src="/assets/uniuyo-logo.png"
+            src={`${import.meta.env.BASE_URL}assets/uniuyo-logo.png`}
             alt="University of Uyo logo"
             className="h-7 w-7 rounded-lg border border-[#008751]/20 bg-white p-0.5 object-contain"
           />

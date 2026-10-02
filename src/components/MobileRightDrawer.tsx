@@ -126,7 +126,7 @@ export const MobileRightDrawer: React.FC<MobileRightDrawerProps> = ({
         <div className="p-5 border-b border-slate-100 flex items-center justify-between bg-slate-50/60">
           <div className="flex items-center gap-2.5">
             <div className="w-9 h-9 rounded-xl bg-white border border-slate-200 flex items-center justify-center shadow-sm p-1">
-              <img src="/assets/uniuyo-logo.png" alt="University of Uyo logo" className="max-h-full max-w-full object-contain" />
+              <img src={`${import.meta.env.BASE_URL}assets/uniuyo-logo.png`} alt="University of Uyo logo" className="max-h-full max-w-full object-contain" />
             </div>
             <div>
               <div className="flex items-center gap-1.5">

@@ -80,7 +80,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
       {/* Brand Header */}
       <div className="p-6 border-b border-slate-100 flex items-center gap-3">
         <div className="w-10 h-10 rounded-xl bg-white border border-slate-200 flex items-center justify-center shadow-sm p-1">
-          <img src="/assets/uniuyo-logo.png" alt="University of Uyo logo" className="max-h-full max-w-full object-contain" />
+          <img src={`${import.meta.env.BASE_URL}assets/uniuyo-logo.png`} alt="University of Uyo logo" className="max-h-full max-w-full object-contain" />
         </div>
         <div>
           <div className="flex items-center gap-1.5">

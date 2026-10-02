@@ -296,7 +296,7 @@ export const AuthPage: React.FC<AuthPageProps> = ({ onLoginSuccess, pendingVerif
             <header className="flex items-center justify-between gap-3 py-1 sm:py-2">
               <div className="flex min-w-0 items-center gap-2.5 sm:gap-3">
                 <div className="landing-logo flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-emerald-100 bg-white p-1.5 shadow-sm sm:h-11 sm:w-11">
-                  <img src="/assets/uniuyo-logo.png" alt="University of Uyo logo" className="max-h-full max-w-full object-contain" />
+                  <img src={`${import.meta.env.BASE_URL}assets/uniuyo-logo.png`} alt="University of Uyo logo" className="max-h-full max-w-full object-contain" />
                 </div>
                 <div className="min-w-0">
                   <p className="landing-brand truncate text-sm font-black tracking-tight text-slate-900 sm:text-base">Uniuyo Pulse</p>
@@ -407,7 +407,7 @@ export const AuthPage: React.FC<AuthPageProps> = ({ onLoginSuccess, pendingVerif
         {/* Uniuyo Pulse Header Brand */}
         <div className="text-center mb-6 sm:mb-8">
           <div className="inline-flex items-center justify-center w-20 h-20 rounded-2xl bg-white border border-[#CDEAD7] shadow-lg shadow-[#008751]/20 mb-3.5 p-2">
-            <img src="/assets/uniuyo-logo.png" alt="University of Uyo logo" className="max-h-full max-w-full object-contain" />
+            <img src={`${import.meta.env.BASE_URL}assets/uniuyo-logo.png`} alt="University of Uyo logo" className="max-h-full max-w-full object-contain" />
           </div>
           <h1 className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight">
             Uniuyo Pulse

@@ -114,7 +114,7 @@ export const ClassAttendanceSheet: React.FC<ClassAttendanceSheetProps> = ({
   return (
     <article className="class-attendance-print" aria-label="Class attendance sheet">
       <header className="class-sheet-header">
-        <img className="class-sheet-logo" src="/assets/uniuyo-logo.png" alt="University of Uyo crest" />
+        <img className="class-sheet-logo" src={`${import.meta.env.BASE_URL}assets/uniuyo-logo.png`} alt="University of Uyo crest" />
         <h1>UNIVERSITY OF UYO</h1>
         <p className="class-sheet-department">{department}</p>
         <p className="class-sheet-faculty">{formatFaculty(currentUser.faculty)}</p>

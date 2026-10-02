@@ -130,7 +130,7 @@ export const RecordsView: React.FC<RecordsViewProps> = ({
       {/* Table */}
       <div className="records-print bg-white rounded-3xl border border-slate-200/80 shadow-xs overflow-hidden">
         <header className="records-print-header">
-          <img className="records-print-logo" src="/assets/uniuyo-logo.png" alt="University of Uyo crest" />
+          <img className="records-print-logo" src={`${import.meta.env.BASE_URL}assets/uniuyo-logo.png`} alt="University of Uyo crest" />
           <h1>UNIVERSITY OF UYO</h1>
           <p className="records-print-department">{formatDepartment(currentUser.department)}</p>
           <p className="records-print-faculty">{formatFaculty(currentUser.faculty)}</p>

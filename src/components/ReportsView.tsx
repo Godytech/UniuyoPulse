@@ -182,7 +182,7 @@ export const ReportsView: React.FC<ReportsViewProps> = ({ courses, students, cur
       <div className="semester-report-print bg-white rounded-3xl border border-slate-200/80 shadow-xs overflow-hidden print:border-none print:shadow-none">
         {/* Letterhead Header for Print / Audit */}
         <div className="semester-report-header p-6 sm:p-8 border-b border-slate-200 bg-gradient-to-r from-white to-slate-50">
-          <img className="semester-report-logo" src="/assets/uniuyo-logo.png" alt="University of Uyo crest" />
+          <img className="semester-report-logo" src={`${import.meta.env.BASE_URL}assets/uniuyo-logo.png`} alt="University of Uyo crest" />
           <div className="semester-report-brand">
             <div className="flex items-center justify-center gap-2 mb-1">
               <span className="semester-report-university">University of Uyo</span>
