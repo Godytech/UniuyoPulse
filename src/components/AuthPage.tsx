@@ -17,9 +17,11 @@ import {
   MapPin,
   Navigation,
   ShieldCheck,
-  Home
+  Home,
+  Moon,
+  Sun
 } from 'lucide-react';
-import { User, UserRole, AuthUser } from '../types';
+import { ThemeMode, User, UserRole, AuthUser } from '../types';
 import {
   createFirebaseAccount,
   EmailVerificationRequiredError,
@@ -37,9 +39,16 @@ import { useTimeGreeting, getTimeEmoji } from '../lib/timeGreeting';
 interface AuthPageProps {
   onLoginSuccess: (user: User) => void;
   pendingVerificationEmail: string | null;
+  themeMode: ThemeMode;
+  onToggleTheme: () => void;
 }
 
-export const AuthPage: React.FC<AuthPageProps> = ({ onLoginSuccess, pendingVerificationEmail }) => {
+export const AuthPage: React.FC<AuthPageProps> = ({
+  onLoginSuccess,
+  pendingVerificationEmail,
+  themeMode,
+  onToggleTheme
+}) => {
   const [mode, setMode] = useState<'landing' | 'signin' | 'signup' | 'verify'>(() =>
     pendingVerificationEmail ? 'verify' : 'landing'
   );
@@ -304,6 +313,15 @@ export const AuthPage: React.FC<AuthPageProps> = ({ onLoginSuccess, pendingVerif
                 </div>
               </div>
               <div className="flex shrink-0 items-center gap-1.5 sm:gap-3">
+                <button
+                  type="button"
+                  onClick={onToggleTheme}
+                  className="landing-theme-toggle inline-flex h-9 w-9 items-center justify-center rounded-lg border border-slate-200 text-slate-700 transition-colors hover:bg-slate-100 sm:h-10 sm:w-10 sm:rounded-xl"
+                  aria-label={`Switch to ${themeMode === 'light' ? 'dark' : 'light'} theme`}
+                  title={`Switch to ${themeMode === 'light' ? 'dark' : 'light'} theme`}
+                >
+                  {themeMode === 'light' ? <Moon className="h-4 w-4" /> : <Sun className="h-4 w-4" />}
+                </button>
                 <button
                   type="button"
                   onClick={() => handleModeChange('signin')}

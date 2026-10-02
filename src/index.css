@@ -141,6 +141,16 @@ body {
   color: #86efac !important;
 }
 
+.theme-dark .auth-page-landing .landing-theme-toggle {
+  border-color: #334155 !important;
+  background-color: #111c2e !important;
+  color: #fcd34d !important;
+}
+
+.theme-dark .auth-page-landing .landing-theme-toggle:hover {
+  background-color: #1e293b !important;
+}
+
 .theme-dark .auth-page-landing .landing-secondary-action {
   background-color: #111c2e !important;
   border-color: #334155 !important;

@@ -487,6 +487,9 @@ export default function App() {
   };
 
   const isDarkTheme = themeMode === 'lights_out';
+  const toggleTheme = () => {
+    setThemeMode((prev) => (prev === 'light' ? 'lights_out' : 'light'));
+  };
 
   // If signed out, present the official AuthPage login view before deriving
   // user-scoped course, timetable, and session data.
@@ -499,6 +502,8 @@ export default function App() {
         <AuthPage
           onLoginSuccess={handleLoginSuccess}
           pendingVerificationEmail={pendingVerificationEmail}
+          themeMode={themeMode}
+          onToggleTheme={toggleTheme}
         />
         {toastMessage && (
           <div className="fixed bottom-6 right-6 z-50 animate-in fade-in slide-in-from-bottom-4 duration-200">
@@ -543,10 +548,6 @@ export default function App() {
     (currentUser.role !== 'student' || sessionMatchesStudentTerm(session, currentUser))
   );
   const unreadCount = notifications.filter((n) => !n.read).length;
-  const toggleTheme = () => {
-    setThemeMode((prev) => (prev === 'light' ? 'lights_out' : 'light'));
-  };
-
   return (
     <div
       data-theme={themeMode}
