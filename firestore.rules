@@ -1,0 +1,166 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isLecturer() {
+      return isSignedIn()
+        && get(/databases/$(database)/documents/userProfiles/$(request.auth.uid)).data.role == 'lecturer';
+    }
+
+    function canManageDepartmentAcademicData() {
+      return isSignedIn()
+        && get(/databases/$(database)/documents/userProfiles/$(request.auth.uid)).data.role
+          in ['lecturer', 'course_rep_admin', 'assistant_course_rep', 'rep_admin'];
+    }
+
+    function hasDepartment(data) {
+      return isSignedIn()
+        && data.department is string
+        && data.department
+          == get(/databases/$(database)/documents/userProfiles/$(request.auth.uid)).data.department;
+    }
+
+    match /courses/{documentId} {
+      allow read: if isSignedIn();
+      allow create, update: if canManageDepartmentAcademicData()
+        && hasDepartment(request.resource.data);
+      allow delete: if canManageDepartmentAcademicData()
+        && hasDepartment(resource.data);
+    }
+
+    match /sessions/{documentId} {
+      allow read, write: if isSignedIn();
+    }
+
+    match /records/{documentId} {
+      allow read, write: if isSignedIn();
+    }
+
+    match /timetable/{documentId} {
+      allow read: if isSignedIn();
+      allow create, update: if canManageDepartmentAcademicData()
+        && hasDepartment(request.resource.data);
+      allow delete: if canManageDepartmentAcademicData()
+        && hasDepartment(resource.data);
+    }
+
+    match /notifications/{documentId} {
+      allow read, write: if isSignedIn();
+    }
+
+    match /students/{documentId} {
+      allow read, write: if isSignedIn();
+    }
+
+    // A user can read their own profile. Student profile edits cannot change
+    // their account identity, email, or role.
+    match /userProfiles/{uid} {
+      allow get: if isSignedIn() && request.auth.uid == uid;
+      allow list: if false;
+      allow create: if isSignedIn()
+        && request.auth.uid == uid
+        && request.resource.data.uid == uid
+        && request.resource.data.keys().hasAll([
+          'id',
+          'fullName',
+          'email',
+          'role',
+          'studentId',
+          'department',
+          'faculty',
+          'level',
+          'createdAt',
+          'uid'
+        ])
+        && request.resource.data.keys().hasOnly([
+          'id',
+          'fullName',
+          'email',
+          'role',
+          'studentId',
+          'department',
+          'faculty',
+          'level',
+          'createdAt',
+          'uid'
+        ])
+        && request.resource.data.role in ['student', 'lecturer']
+        && request.resource.data.id is string
+        && request.resource.data.email is string
+        && request.resource.data.fullName is string
+        && request.resource.data.fullName.size() > 0
+        && request.resource.data.studentId is string
+        && request.resource.data.studentId.size() > 0
+        && request.resource.data.department is string
+        && request.resource.data.department.size() > 0
+        && request.resource.data.faculty is string
+        && request.resource.data.faculty.size() > 0
+        && request.resource.data.level is string
+        && request.resource.data.level.size() > 0
+        && request.resource.data.createdAt is string
+        && request.resource.data.email == request.auth.token.email;
+      allow update: if (
+          isSignedIn()
+          && request.auth.uid == uid
+          && resource.data.role in ['student', 'course_rep_admin', 'assistant_course_rep', 'rep_admin']
+          && request.resource.data.role == resource.data.role
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+            'fullName',
+            'studentId',
+            'department',
+            'faculty',
+            'level',
+            'semester',
+            'academicSession'
+          ])
+          && request.resource.data.fullName is string
+          && request.resource.data.fullName.size() > 0
+          && request.resource.data.studentId is string
+          && request.resource.data.studentId.size() > 0
+          && request.resource.data.department is string
+          && request.resource.data.department.size() > 0
+          && request.resource.data.faculty is string
+          && request.resource.data.faculty.size() > 0
+          && request.resource.data.level is string
+          && request.resource.data.level.size() > 0
+          && request.resource.data.semester in ['First Semester', 'Second Semester']
+          && request.resource.data.academicSession is string
+          && request.resource.data.academicSession.matches('^[0-9]{4}/[0-9]{4}$')
+        )
+        || (
+          isLecturer()
+          && uid != request.auth.uid
+          && resource.data.role in ['student', 'rep_admin', 'course_rep_admin', 'assistant_course_rep']
+          && request.resource.data.role in ['student', 'course_rep_admin', 'assistant_course_rep']
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['role'])
+          && request.resource.data.diff(resource.data).affectedKeys().hasAny(['role'])
+        );
+      allow delete: if false;
+    }
+
+    // The registration page reads this config before the user is authenticated
+    // to Firebase. This exposes the passkey to anyone who knows the project.
+    // Use a Cloud Function to validate it securely in production.
+    match /appConfig/lecturerAuthorization {
+      allow get: if true;
+      allow list, create, update, delete: if false;
+    }
+
+    // Student signup checks this shared passkey before creating an Auth account.
+    // This is client-readable and is only an enrollment deterrent, not strong
+    // protection against a determined outsider.
+    match /appConfig/studentAuthorization {
+      allow get: if true;
+      allow list, create, update, delete: if false;
+    }
+
+    // Deny all access to documents not explicitly covered above.
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

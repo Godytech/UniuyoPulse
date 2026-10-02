@@ -1,0 +1,10 @@
+{
+  "name": "Uniuyo Pulse",
+  "description": "Modern university digital attendance management system with GPS geofencing, student check-in, course rep admin dashboards, and semester reporting.",
+  "requestFramePermissions": [
+    "geolocation"
+  ],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}

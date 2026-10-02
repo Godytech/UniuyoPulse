@@ -1,0 +1,1720 @@
+@import "tailwindcss";
+
+:root {
+  --primary: #008751;
+  --primary-dark: #006B3F;
+  --primary-light: #E8F5EF;
+  --secondary: #A50021;
+  --secondary-dark: #820019;
+  --secondary-light: #FBEAEC;
+  --accent: #FFD700;
+  --accent-light: #FFF8CC;
+  --background: #F8FAFC;
+  --surface: #FFFFFF;
+  --text-primary: #17202A;
+  --text-secondary: #64748B;
+  --border: #E2E8F0;
+  --success: #16A34A;
+  --error: #DC2626;
+  --warning: #D97706;
+  --info: #2563EB;
+}
+
+@theme {
+  --color-brand-primary: #008751;
+  --color-brand-primary-hover: #006B3F;
+  --color-brand-secondary: #A50021;
+  --color-brand-success: #16A34A;
+  --color-brand-warning: #D97706;
+  --color-brand-danger: #DC2626;
+
+  --font-sans: "Plus Jakarta Sans", "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  --font-mono: "SF Mono", Monaco, Inconsolata, "Fira Code", monospace;
+}
+
+html, body, #root {
+  min-height: 100%;
+  background: var(--background);
+}
+
+body {
+  font-family: "Plus Jakarta Sans", "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  background: var(--background);
+  color: var(--text-primary);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+.theme-light {
+  background: var(--background);
+  color: #17202a;
+}
+
+.theme-dark {
+  background: var(--background);
+  color: #e2e8f0;
+}
+
+.theme-dark .bg-white,
+.theme-dark .bg-slate-50,
+.theme-dark .bg-slate-100,
+.theme-dark .bg-slate-200,
+.theme-dark .bg-slate-900,
+.theme-dark .bg-slate-800,
+.theme-dark .bg-slate-700,
+.theme-dark [class*="bg-white"],
+.theme-dark [class*="bg-slate-"] {
+  background-color: #0f172a !important;
+}
+
+.theme-dark .text-slate-900,
+.theme-dark .text-slate-800,
+.theme-dark .text-slate-700,
+.theme-dark .text-slate-600,
+.theme-dark .text-slate-500,
+.theme-dark .text-slate-400,
+.theme-dark .text-slate-300,
+.theme-dark [class*="text-slate-"] {
+  color: #e2e8f0 !important;
+}
+
+.theme-dark .border-slate-200,
+.theme-dark .border-slate-100,
+.theme-dark .border-slate-300,
+.theme-dark [class*="border-slate-"] {
+  border-color: #1e293b !important;
+}
+
+.theme-dark .shadow-xl,
+.theme-dark .shadow-2xl,
+.theme-dark .shadow-lg,
+.theme-dark .shadow-md,
+.theme-dark .shadow-sm {
+  box-shadow: 0 0 0 1px rgba(148, 163, 184, 0.12) !important;
+}
+
+.theme-dark .text-slate-500,
+.theme-dark .text-slate-400 {
+  color: #94a3b8 !important;
+}
+
+.theme-dark .auth-page-landing {
+  background-color: #07111e !important;
+  color: #e2e8f0;
+}
+
+.theme-dark .auth-page-landing .landing-logo {
+  background-color: #ffffff !important;
+  border-color: #334155 !important;
+}
+
+.theme-dark .auth-page-landing .landing-brand,
+.theme-dark .auth-page-landing .landing-title,
+.theme-dark .auth-page-landing .landing-verification-title {
+  color: #f1f5f9 !important;
+}
+
+.theme-dark .auth-page-landing .landing-copy,
+.theme-dark .auth-page-landing .landing-tagline,
+.theme-dark .auth-page-landing .landing-caption,
+.theme-dark .auth-page-landing .landing-footer,
+.theme-dark .auth-page-landing .landing-verification-copy {
+  color: #a8b5c7 !important;
+}
+
+.theme-dark .auth-page-landing .landing-accent {
+  color: #4ade80 !important;
+}
+
+.theme-dark .auth-page-landing .landing-eyebrow {
+  background-color: #12372f !important;
+  border-color: #17634e !important;
+  color: #86efac !important;
+}
+
+.theme-dark .auth-page-landing .landing-login {
+  color: #dbeafe !important;
+}
+
+.theme-dark .auth-page-landing .landing-login:hover {
+  background-color: #12372f !important;
+  color: #86efac !important;
+}
+
+.theme-dark .auth-page-landing .landing-secondary-action {
+  background-color: #111c2e !important;
+  border-color: #334155 !important;
+  color: #e2e8f0 !important;
+}
+
+.theme-dark .auth-page-landing .landing-secondary-action:hover {
+  background-color: #182538 !important;
+  border-color: #17634e !important;
+}
+
+.theme-dark .auth-page-landing .landing-illustration {
+  background-color: #0d1b2a !important;
+  border-color: #27394d !important;
+  box-shadow: 0 24px 70px -40px rgba(0, 0, 0, 0.9);
+}
+
+.theme-dark .auth-page-landing .landing-map-grid {
+  opacity: 0.5;
+  background-image:
+    linear-gradient(to right, #2a4054 1px, transparent 1px),
+    linear-gradient(to bottom, #2a4054 1px, transparent 1px);
+}
+
+.theme-dark .auth-page-landing .landing-map-road {
+  background-color: rgba(30, 48, 65, 0.8) !important;
+  border-color: #334a60 !important;
+}
+
+.theme-dark .auth-page-landing .landing-geofence-outer {
+  background-color: rgba(22, 101, 52, 0.14) !important;
+  border-color: #34d399 !important;
+}
+
+.theme-dark .auth-page-landing .landing-geofence-inner,
+.theme-dark .auth-page-landing .landing-geofence-center {
+  border-color: rgba(52, 211, 153, 0.75) !important;
+}
+
+.theme-dark .auth-page-landing .landing-geofence-center {
+  background-color: rgba(22, 101, 52, 0.2) !important;
+}
+
+.theme-dark .auth-page-landing .landing-location-pin {
+  --tw-ring-color: #0d1b2a !important;
+}
+
+.theme-dark .auth-page-landing .landing-location-label {
+  background-color: #111c2e !important;
+  border-color: #3b5066 !important;
+  color: #e2e8f0 !important;
+}
+
+.theme-dark .auth-page-landing .landing-user-pin {
+  background-color: #dbeafe !important;
+  border-color: #0d1b2a !important;
+  color: #0f172a !important;
+}
+
+.theme-dark .auth-page-landing .landing-verification-card {
+  background-color: rgba(15, 23, 42, 0.96) !important;
+  border-color: #3b5066 !important;
+  box-shadow: 0 12px 28px rgba(0, 0, 0, 0.35);
+}
+
+.theme-dark .auth-page-landing .landing-verification-icon {
+  background-color: #12372f !important;
+  color: #86efac !important;
+}
+
+.theme-dark .auth-page-landing .landing-footer {
+  border-color: #233247 !important;
+}
+
+@media (max-width: 639px) {
+  .theme-dark .auth-page-landing .landing-verification-copy {
+    font-size: 0.6875rem;
+    line-height: 1rem;
+  }
+}
+
+.theme-dark .home-dashboard [class*="bg-emerald-50"],
+.theme-dark .home-dashboard [class*="bg-emerald-100"] {
+  background-color: #12372f !important;
+}
+
+.theme-dark .home-dashboard [class*="bg-indigo-50"] {
+  background-color: #1e2b4a !important;
+}
+
+.theme-dark .home-dashboard [class*="bg-amber-50"] {
+  background-color: #3b2d14 !important;
+}
+
+.theme-dark .home-dashboard [class*="bg-rose-50"],
+.theme-dark .home-dashboard [class*="bg-rose-100"] {
+  background-color: #3b1f2b !important;
+}
+
+.theme-dark .home-dashboard [class*="border-indigo-100"] {
+  border-color: #334155 !important;
+}
+
+.theme-dark .home-dashboard [class*="border-amber-200"] {
+  border-color: #70511b !important;
+}
+
+.theme-dark .home-dashboard [class*="text-indigo-700"],
+.theme-dark .home-dashboard [class*="text-indigo-600"] {
+  color: #a5b4fc !important;
+}
+
+.theme-dark .home-dashboard [class*="text-emerald-800"],
+.theme-dark .home-dashboard [class*="text-emerald-700"],
+.theme-dark .home-dashboard [class*="text-emerald-600"] {
+  color: #86efac !important;
+}
+
+.theme-dark .home-dashboard [class*="text-amber-900"],
+.theme-dark .home-dashboard [class*="text-amber-700"],
+.theme-dark .home-dashboard [class*="text-amber-600"] {
+  color: #fcd34d !important;
+}
+
+.theme-dark .home-dashboard [class*="text-rose-700"],
+.theme-dark .home-dashboard [class*="text-rose-600"] {
+  color: #fda4af !important;
+}
+
+.theme-dark .home-dashboard [class*="text-slate-100"] {
+  color: #293548 !important;
+}
+
+.theme-dark .home-dashboard button[class*="bg-white"] {
+  background-color: #ffffff !important;
+  color: #820019 !important;
+}
+
+@media screen {
+  .theme-dark .semester-report-print {
+    background-color: #0f172a !important;
+    border-color: #1e293b !important;
+    color: #e2e8f0;
+  }
+
+  .theme-dark .semester-report-header {
+    background: linear-gradient(135deg, #0f172a 0%, #111c2e 100%) !important;
+    border-color: #1e293b !important;
+  }
+
+  .theme-dark .semester-report-university,
+  .theme-dark .semester-report-title {
+    color: #f8fafc;
+  }
+
+  .theme-dark .semester-report-department {
+    color: #e2e8f0;
+  }
+
+  .theme-dark .semester-report-faculty {
+    color: #94a3b8;
+  }
+
+  .theme-dark .semester-report-audit {
+    background-color: #12372f !important;
+    border-color: #17634e !important;
+    color: #86efac !important;
+  }
+
+  .theme-dark .semester-report-course {
+    color: #cbd5e1 !important;
+  }
+
+  .theme-dark .semester-report-course span {
+    color: #86efac !important;
+  }
+
+  .theme-dark .semester-report-meta {
+    background-color: #111c2e !important;
+    border-color: #334155 !important;
+    color: #cbd5e1 !important;
+  }
+
+  .theme-dark .semester-report-meta strong {
+    color: #f8fafc;
+  }
+}
+
+.theme-dark .student-detail-panel {
+  background-color: #0f172a !important;
+  border-color: #334155 !important;
+  color: #e2e8f0;
+}
+
+.theme-dark .student-detail-header,
+.theme-dark .student-detail-footer {
+  background-color: #111c2e !important;
+  border-color: #334155 !important;
+}
+
+.theme-dark .student-detail-identity {
+  background: linear-gradient(135deg, #142b28 0%, #122033 100%) !important;
+  border-color: #285447 !important;
+}
+
+.theme-dark .student-detail-identity .text-slate-900,
+.theme-dark .student-detail-course-row .text-slate-900 {
+  color: #f1f5f9 !important;
+}
+
+.theme-dark .student-detail-status-good {
+  background-color: #12372f !important;
+  color: #86efac !important;
+}
+
+.theme-dark .student-detail-status-warning {
+  background-color: #3b2d14 !important;
+  color: #fcd34d !important;
+}
+
+.theme-dark .student-detail-status-alert {
+  background-color: #3b1f2b !important;
+  color: #fda4af !important;
+}
+
+.theme-dark .student-detail-stat-overall,
+.theme-dark .student-detail-course-row {
+  background-color: #111c2e !important;
+  border-color: #334155 !important;
+}
+
+.theme-dark .student-detail-stat-present {
+  background-color: #12372f !important;
+  border-color: #17634e !important;
+}
+
+.theme-dark .student-detail-stat-late {
+  background-color: #3b2d14 !important;
+  border-color: #70511b !important;
+}
+
+.theme-dark .student-detail-stat-absent {
+  background-color: #3b1f2b !important;
+  border-color: #713447 !important;
+}
+
+.theme-dark .student-detail-stat-present .text-emerald-700,
+.theme-dark .student-detail-stat-present .text-emerald-600 {
+  color: #86efac !important;
+}
+
+.theme-dark .student-detail-stat-present .text-emerald-900 {
+  color: #bbf7d0 !important;
+}
+
+.theme-dark .student-detail-stat-late .text-amber-700,
+.theme-dark .student-detail-stat-late .text-amber-600 {
+  color: #fcd34d !important;
+}
+
+.theme-dark .student-detail-stat-late .text-amber-900 {
+  color: #fde68a !important;
+}
+
+.theme-dark .student-detail-stat-absent .text-rose-700,
+.theme-dark .student-detail-stat-absent .text-rose-600 {
+  color: #fda4af !important;
+}
+
+.theme-dark .student-detail-stat-absent .text-rose-900 {
+  color: #fecdd3 !important;
+}
+
+.theme-dark .student-detail-course-list {
+  border-color: #334155 !important;
+}
+
+.theme-dark .student-detail-course-row:hover {
+  background-color: #182538 !important;
+}
+
+.theme-dark .student-detail-course-code {
+  background-color: #12372f !important;
+  color: #86efac !important;
+}
+
+.theme-dark .student-detail-progress-track {
+  background-color: #293548 !important;
+}
+
+.theme-dark .student-detail-course-row .text-emerald-700 {
+  color: #86efac !important;
+}
+
+.theme-dark .student-detail-close {
+  background-color: #273449 !important;
+  color: #e2e8f0 !important;
+}
+
+.theme-dark .student-detail-close:hover {
+  background-color: #35445b !important;
+}
+
+.theme-dark .student-directory-view-button {
+  background-color: #1e293b !important;
+  color: #cbd5e1 !important;
+}
+
+.theme-dark .student-directory-view-button:hover {
+  background-color: #12372f !important;
+  color: #86efac !important;
+}
+
+.sidebar-role-card {
+  border: 1px solid #dbe4ee;
+  border-radius: 1rem;
+  padding: 0.75rem;
+  background: linear-gradient(135deg, #f8fafc 0%, #ffffff 100%);
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
+}
+
+.sidebar-role-card.is-admin {
+  border-color: #a7f3d0;
+  background: linear-gradient(135deg, #ecfdf5 0%, #ffffff 100%);
+}
+
+.sidebar-role-card.is-student {
+  border-color: #a7f3d0;
+  background: linear-gradient(135deg, #ecfdf5 0%, #ffffff 100%);
+}
+
+.sidebar-role-icon {
+  color: #ffffff;
+  background: #008751;
+  box-shadow: 0 4px 10px rgba(0, 135, 81, 0.2);
+}
+
+.sidebar-role-card.is-admin .sidebar-role-icon {
+  background: #008751;
+  box-shadow: 0 4px 10px rgba(0, 135, 81, 0.2);
+}
+
+.sidebar-eyebrow {
+  color: #64748b;
+}
+
+.sidebar-role-title {
+  color: #17202a;
+}
+
+.sidebar-level-badge {
+  color: #006b3f;
+  background: #ffffff;
+  box-shadow: inset 0 0 0 1px #a7f3d0;
+}
+
+.sidebar-role-card.is-admin .sidebar-level-badge {
+  color: #006b3f;
+  box-shadow: inset 0 0 0 1px #a7f3d0;
+}
+
+.sidebar-geofence-card {
+  border: 1px solid #dbe4ee;
+  background: linear-gradient(135deg, #f8fafc 0%, #f0fdf4 100%);
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
+}
+
+.sidebar-geofence-icon {
+  color: #008751;
+  background: #dcfce7;
+}
+
+.sidebar-geofence-title {
+  color: #17202a;
+}
+
+.sidebar-geofence-subtitle {
+  color: #64748b;
+}
+
+.sidebar-status-dot {
+  width: 0.5rem;
+  height: 0.5rem;
+  border-radius: 9999px;
+  background: #16a34a;
+  box-shadow: 0 0 0 3px #bbf7d0;
+}
+
+.theme-dark .sidebar-role-card,
+.theme-dark .sidebar-role-card.is-admin,
+.theme-dark .sidebar-role-card.is-student {
+  border-color: #334155;
+  background: linear-gradient(135deg, #182235 0%, #111827 100%);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
+}
+
+.theme-dark .sidebar-role-card.is-admin {
+  border-color: #047857;
+  background: linear-gradient(135deg, #12372f 0%, #111827 100%);
+}
+
+.theme-dark .sidebar-role-card.is-student {
+  border-color: #047857;
+  background: linear-gradient(135deg, #12372f 0%, #111827 100%);
+}
+
+.theme-dark .sidebar-eyebrow,
+.theme-dark .sidebar-geofence-subtitle {
+  color: #a8b5c7;
+}
+
+.theme-dark .sidebar-role-title,
+.theme-dark .sidebar-geofence-title {
+  color: #f8fafc;
+}
+
+.theme-dark .sidebar-level-badge {
+  color: #86efac;
+  background: #18342d;
+  box-shadow: inset 0 0 0 1px #047857;
+}
+
+.theme-dark .sidebar-role-card.is-admin .sidebar-level-badge {
+  color: #86efac;
+  background: #18342d;
+  box-shadow: inset 0 0 0 1px #047857;
+}
+
+.theme-dark .sidebar-geofence-card {
+  border-color: #334155;
+  background: linear-gradient(135deg, #182235 0%, #13271f 100%);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
+}
+
+.theme-dark .sidebar-geofence-icon {
+  color: #86efac;
+  background: #14532d;
+}
+
+.theme-dark .sidebar-status-dot {
+  box-shadow: 0 0 0 3px #14532d;
+}
+
+.tabular-nums {
+  font-variant-numeric: tabular-nums;
+}
+
+.bg-indigo-50 { background-color: var(--primary-light) !important; }
+.bg-indigo-100 { background-color: #E0F2F0 !important; }
+.bg-indigo-500,
+.bg-indigo-600,
+.bg-indigo-700,
+.bg-indigo-900 { background-color: var(--primary) !important; }
+.text-indigo-500,
+.text-indigo-600,
+.text-indigo-700,
+.text-indigo-800,
+.text-indigo-900 { color: var(--primary) !important; }
+.border-indigo-200,
+.border-indigo-500,
+.border-indigo-600 { border-color: var(--border) !important; }
+.ring-indigo-500,
+.ring-indigo-700 { --tw-ring-color: var(--primary) !important; }
+.from-indigo-600 { --tw-gradient-from: var(--primary) var(--tw-gradient-from-position) !important; }
+.to-violet-700 { --tw-gradient-to: var(--primary) var(--tw-gradient-to-position) !important; }
+
+/* Radar Sonar Ripple for GPS Trust Signal */
+@keyframes radar-sonar {
+  0% {
+    transform: scale(0.6);
+    opacity: 0.9;
+  }
+  50% {
+    opacity: 0.35;
+  }
+  100% {
+    transform: scale(2.4);
+    opacity: 0;
+  }
+}
+
+.animate-radar-sonar {
+  animation: radar-sonar 2.4s cubic-bezier(0, 0.2, 0.8, 1) infinite;
+}
+
+.animate-radar-sonar-delayed {
+  animation: radar-sonar 2.4s cubic-bezier(0, 0.2, 0.8, 1) infinite;
+  animation-delay: 1.2s;
+}
+
+.class-attendance-print {
+  display: none;
+}
+
+.semester-report-logo {
+  display: block;
+  width: 48px;
+  height: 48px;
+  margin: 0 auto 6px;
+  border-radius: 50%;
+  object-fit: contain;
+}
+
+.records-print-header,
+.records-print-signatures {
+  display: none;
+}
+
+@media screen and (max-width: 640px) {
+  .semester-report-print,
+  .records-print,
+  .verification-slip-print {
+    min-width: 0;
+    max-width: 100%;
+  }
+
+  .semester-report-header {
+    padding: 1rem !important;
+  }
+
+  .semester-report-brand > div {
+    flex-wrap: wrap;
+  }
+
+  .semester-report-university {
+    font-size: 1.125rem;
+  }
+
+  .semester-report-department {
+    font-size: 0.875rem;
+  }
+
+  .semester-report-title {
+    margin-top: 0.75rem;
+    font-size: 1rem;
+  }
+
+  .semester-report-header-content {
+    align-items: stretch;
+  }
+
+  .semester-report-meta {
+    width: 100%;
+    overflow-wrap: anywhere;
+  }
+
+  .sheet-table-scroll {
+    max-width: 100%;
+    overflow-x: auto;
+    overscroll-behavior-x: contain;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .semester-report-table {
+    min-width: 820px;
+  }
+
+  .records-print-table {
+    min-width: 760px;
+  }
+
+  .class-sheet-table {
+    min-width: 680px;
+  }
+
+  .class-sheet-table-wrap {
+    width: 100%;
+  }
+
+  .semester-report-table th,
+  .semester-report-table td,
+  .records-print-table th,
+  .records-print-table td {
+    white-space: nowrap;
+  }
+
+  .sheet-scroll-hint {
+    padding: 0.625rem 0.875rem;
+    color: #64748b;
+    font-size: 0.6875rem;
+    font-weight: 600;
+  }
+
+  .theme-dark .sheet-scroll-hint {
+    color: #94a3b8;
+  }
+
+  .verification-slip-print {
+    padding: 1rem !important;
+    border-radius: 1rem !important;
+  }
+
+  .verification-slip-details {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .verification-slip-audit-heading {
+    align-items: flex-start;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+  }
+
+  .verification-slip-audit-heading > span:last-child {
+    max-width: 100%;
+    white-space: normal;
+    overflow-wrap: anywhere;
+  }
+
+  .verification-slip-print [class*="font-mono"] {
+    overflow-wrap: anywhere;
+  }
+}
+
+@media print {
+  @page {
+    size: A4 portrait;
+    margin: 12mm 10mm;
+  }
+
+  @page compact-mobile-sheet {
+    size: A4 portrait;
+    margin: 0;
+  }
+
+  body.printing-mobile-sheet.printing-semester-report,
+  body.printing-mobile-sheet.printing-attendance-records {
+    page: compact-mobile-sheet;
+  }
+
+  html,
+  body,
+  #root,
+  .theme-dark {
+    width: auto !important;
+    min-width: 0 !important;
+    max-width: none !important;
+    background: #fff !important;
+    color: #111827 !important;
+    color-scheme: light !important;
+  }
+
+  body.printing-semester-report .semester-report-print,
+  body.printing-class-sheet .class-attendance-print,
+  body.printing-attendance-records .records-print,
+  body.printing-verification-slip .verification-slip-print {
+    box-sizing: border-box !important;
+    width: 190mm !important;
+    min-width: 0 !important;
+    max-width: 190mm !important;
+    margin: 0 !important;
+  }
+
+  body.printing-mobile-sheet.printing-semester-report .semester-report-print,
+  body.printing-mobile-sheet.printing-attendance-records .records-print {
+    box-sizing: border-box !important;
+    width: 210mm !important;
+    min-width: 0 !important;
+    max-width: 210mm !important;
+    padding: 12mm 10mm !important;
+  }
+
+  body.printing-semester-report .semester-report-print,
+  body.printing-class-sheet .class-attendance-print,
+  body.printing-attendance-records .records-print,
+  body.printing-verification-slip .verification-slip-print {
+    left: 0 !important;
+    right: auto !important;
+  }
+
+  body.printing-semester-report .semester-report-table,
+  body.printing-class-sheet .class-sheet-table,
+  body.printing-attendance-records .records-print-table {
+    width: 100% !important;
+    min-width: 0 !important;
+    max-width: 100% !important;
+    table-layout: fixed !important;
+  }
+
+  body.printing-verification-slip .verification-slip-overlay {
+    position: static !important;
+    display: block !important;
+    width: 190mm !important;
+    min-width: 0 !important;
+    max-width: 190mm !important;
+    padding: 0 !important;
+    overflow: visible !important;
+    background: #fff !important;
+    backdrop-filter: none !important;
+  }
+
+  body.printing-verification-slip .verification-slip-modal {
+    position: static !important;
+    display: block !important;
+    width: 190mm !important;
+    min-width: 0 !important;
+    max-width: 190mm !important;
+    max-height: none !important;
+    overflow: visible !important;
+    border: 0 !important;
+    border-radius: 0 !important;
+    background: #fff !important;
+    box-shadow: none !important;
+  }
+
+  body.printing-verification-slip .verification-slip-scroll {
+    display: block !important;
+    width: 100% !important;
+    padding: 0 !important;
+    overflow: visible !important;
+  }
+
+  body.printing-semester-report .theme-dark .semester-report-print,
+  body.printing-class-sheet .theme-dark .class-attendance-print,
+  body.printing-attendance-records .theme-dark .records-print,
+  body.printing-verification-slip .theme-dark .verification-slip-print {
+    background: #fff !important;
+    color: #111827 !important;
+  }
+
+  body.printing-semester-report .theme-dark .semester-report-print *,
+  body.printing-class-sheet .theme-dark .class-attendance-print *,
+  body.printing-attendance-records .theme-dark .records-print *,
+  body.printing-verification-slip .theme-dark .verification-slip-print * {
+    background-color: #fff !important;
+    background-image: none !important;
+  }
+
+  body.printing-semester-report .theme-dark .semester-report-print [class*="text-slate-"],
+  body.printing-class-sheet .theme-dark .class-attendance-print [class*="text-slate-"],
+  body.printing-attendance-records .theme-dark .records-print [class*="text-slate-"],
+  body.printing-verification-slip .theme-dark .verification-slip-print [class*="text-slate-"],
+  body.printing-semester-report .theme-dark .semester-report-print [class*="text-white"],
+  body.printing-class-sheet .theme-dark .class-attendance-print [class*="text-white"],
+  body.printing-attendance-records .theme-dark .records-print [class*="text-white"],
+  body.printing-verification-slip .theme-dark .verification-slip-print [class*="text-white"] {
+    color: #334155 !important;
+  }
+
+  body.printing-semester-report,
+  body.printing-semester-report #root {
+    min-height: 0;
+    background: #fff !important;
+    color: #111827 !important;
+  }
+
+  body.printing-semester-report * {
+    visibility: hidden !important;
+  }
+
+  body.printing-semester-report .semester-report-print,
+  body.printing-semester-report .semester-report-print * {
+    visibility: visible !important;
+  }
+
+  body.printing-semester-report .semester-report-print {
+    position: absolute;
+    inset: 0 auto auto 0;
+    display: block;
+    width: 100%;
+    overflow: visible;
+    border: 0;
+    border-radius: 0;
+    background: #fff;
+    box-shadow: none;
+    color: #111827;
+    font-family: Arial, sans-serif;
+    font-size: 11px;
+    line-height: 1.4;
+    print-color-adjust: exact;
+    -webkit-print-color-adjust: exact;
+  }
+
+  body.printing-semester-report .semester-report-metrics {
+    display: none !important;
+  }
+
+  .semester-report-header {
+    padding: 0 0 14px !important;
+    border: 0 !important;
+    background: #fff !important;
+  }
+
+  .semester-report-logo {
+    display: block;
+    width: 72px;
+    height: 72px;
+    margin: 0 auto 7px;
+    border-radius: 50%;
+    object-fit: contain;
+  }
+
+  .semester-report-brand {
+    text-align: center;
+  }
+
+  .semester-report-university {
+    color: #111827;
+    font-size: 25px;
+    font-weight: 700;
+    letter-spacing: 0.02em;
+    text-transform: uppercase;
+  }
+
+  .semester-report-audit {
+    display: none;
+  }
+
+  .semester-report-department {
+    margin: 3px 0 0;
+    color: #374151;
+    font-size: 15px;
+    font-weight: 400;
+  }
+
+  .semester-report-faculty {
+    margin: 1px 0 0;
+    color: #374151;
+    font-size: 12px;
+  }
+
+  .semester-report-title {
+    margin: 16px 0 12px;
+    color: #111827;
+    font-size: 19px;
+    font-weight: 700;
+  }
+
+  .semester-report-header-content {
+    display: grid !important;
+    grid-template-columns: minmax(0, 1fr) minmax(225px, 0.8fr);
+    align-items: center;
+    gap: 16px;
+  }
+
+  .semester-report-course {
+    margin: 0;
+    color: #475569;
+    font-size: 13px;
+  }
+
+  .semester-report-course span {
+    color: #047857 !important;
+  }
+
+  .semester-report-meta {
+    padding: 10px 12px !important;
+    border: 1px solid #e5e7eb !important;
+    border-radius: 9px !important;
+    background: #fff !important;
+    color: #1f2937 !important;
+    font-family: Arial, sans-serif !important;
+    font-size: 10px !important;
+    text-align: left !important;
+    box-shadow: none !important;
+  }
+
+  .semester-report-table-wrap {
+    overflow: visible !important;
+  }
+
+  .sheet-table-scroll {
+    overflow: visible !important;
+  }
+
+  .sheet-scroll-hint {
+    display: none !important;
+  }
+
+  .semester-report-table {
+    width: 100%;
+    border-collapse: collapse;
+    table-layout: fixed;
+    font-size: 10px;
+  }
+
+  body.printing-mobile-sheet .semester-report-print {
+    font-size: 9px;
+  }
+
+  body.printing-mobile-sheet .semester-report-header {
+    padding-bottom: 10px !important;
+  }
+
+  body.printing-mobile-sheet .semester-report-logo {
+    width: 58px;
+    height: 58px;
+    margin-bottom: 5px;
+  }
+
+  body.printing-mobile-sheet .semester-report-university {
+    font-size: 19px;
+  }
+
+  body.printing-mobile-sheet .semester-report-department {
+    font-size: 12px;
+  }
+
+  body.printing-mobile-sheet .semester-report-faculty {
+    font-size: 10px;
+  }
+
+  body.printing-mobile-sheet .semester-report-title {
+    margin: 9px 0 8px;
+    font-size: 14px;
+  }
+
+  body.printing-mobile-sheet .semester-report-header-content {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 0.85fr);
+    gap: 10px;
+  }
+
+  body.printing-mobile-sheet .semester-report-course {
+    font-size: 10px;
+  }
+
+  body.printing-mobile-sheet .semester-report-meta {
+    padding: 7px 8px !important;
+    font-size: 8px !important;
+  }
+
+  body.printing-mobile-sheet .semester-report-table th,
+  body.printing-mobile-sheet .semester-report-table td {
+    padding: 6px 3px !important;
+    font-size: 7.5px !important;
+    white-space: normal;
+    overflow-wrap: anywhere;
+  }
+
+  body.printing-mobile-sheet .semester-report-table th:nth-child(1) { width: 18%; }
+  body.printing-mobile-sheet .semester-report-table th:nth-child(2) { width: 18%; }
+  body.printing-mobile-sheet .semester-report-table th:nth-child(3) { width: 11%; }
+  body.printing-mobile-sheet .semester-report-table th:nth-child(4) { width: 10%; }
+  body.printing-mobile-sheet .semester-report-table th:nth-child(5) { width: 8%; }
+  body.printing-mobile-sheet .semester-report-table th:nth-child(6) { width: 10%; }
+  body.printing-mobile-sheet .semester-report-table th:nth-child(7) { width: 13%; }
+
+  body.printing-mobile-sheet .semester-report-signatures {
+    gap: 12px;
+    margin-top: 14px !important;
+    font-size: 8px;
+  }
+
+  body.printing-mobile-sheet .semester-report-signatures > div > p:first-child,
+  body.printing-mobile-sheet .semester-report-signatures > div > p:last-child {
+    font-size: 7px !important;
+  }
+
+  .semester-report-table thead {
+    display: table-header-group;
+  }
+
+  .semester-report-table th {
+    padding: 8px 5px !important;
+    border-bottom: 1px solid #e5e7eb;
+    background: #f8fafc !important;
+    color: #475569 !important;
+    font-size: 9px !important;
+    letter-spacing: 0.035em;
+    text-align: left;
+    text-transform: uppercase;
+  }
+
+  .semester-report-table td {
+    padding: 9px 5px !important;
+    border-bottom: 1px solid #e5e7eb !important;
+    color: #1f2937 !important;
+    font-size: 10px;
+    vertical-align: middle;
+    overflow-wrap: anywhere;
+  }
+
+  .semester-report-table th:nth-child(n + 3):nth-child(-n + 6),
+  .semester-report-table td:nth-child(n + 3):nth-child(-n + 6) {
+    text-align: center;
+  }
+
+  .semester-report-table th:nth-child(8),
+  .semester-report-table td:nth-child(8) {
+    display: none;
+  }
+
+  .semester-report-table tbody tr {
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+
+  .semester-report-table img,
+  .semester-report-table td:nth-child(7) > div > div {
+    display: none !important;
+  }
+
+  .semester-report-signatures {
+    display: grid !important;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 22px;
+    margin-top: 24px !important;
+    padding: 16px 0 0 !important;
+    border-top: 0 !important;
+    background: #fff !important;
+    break-inside: avoid;
+    page-break-inside: avoid;
+    text-align: center;
+  }
+
+  .semester-report-signatures > div {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem !important;
+  }
+
+  .semester-report-signatures > div > p:first-child {
+    min-height: 26px;
+    margin: 0;
+    color: #334155 !important;
+    font-size: 9px !important;
+    line-height: 1.35;
+  }
+
+  .semester-report-signatures > div > div {
+    height: 25px !important;
+    border-bottom: 1px solid #94a3b8 !important;
+  }
+
+  .semester-report-signatures > div > p:last-child {
+    min-height: 24px;
+    margin: 0;
+    color: #475569 !important;
+    font-size: 9px !important;
+    overflow-wrap: anywhere;
+  }
+
+  body.printing-class-sheet,
+  body.printing-class-sheet #root {
+    min-height: 0;
+    background: #fff !important;
+    color: #111827 !important;
+  }
+
+  body.printing-class-sheet * {
+    visibility: hidden !important;
+  }
+
+  body.printing-class-sheet .class-attendance-print,
+  body.printing-class-sheet .class-attendance-print * {
+    visibility: visible !important;
+  }
+
+  body.printing-class-sheet .class-attendance-print {
+    display: block;
+    position: absolute;
+    inset: 0 auto auto 0;
+    width: 100%;
+    padding: 0;
+    background: #fff;
+    color: #111827;
+    font-family: Arial, sans-serif;
+    font-size: 12px;
+    line-height: 1.4;
+    print-color-adjust: exact;
+    -webkit-print-color-adjust: exact;
+  }
+
+  body.printing-attendance-records,
+  body.printing-attendance-records #root {
+    min-height: 0;
+    background: #fff !important;
+    color: #111827 !important;
+  }
+
+  body.printing-attendance-records * {
+    visibility: hidden !important;
+  }
+
+  body.printing-attendance-records .records-print,
+  body.printing-attendance-records .records-print * {
+    visibility: visible !important;
+  }
+
+  body.printing-attendance-records .records-print {
+    position: absolute;
+    inset: 0 auto auto 0;
+    display: block;
+    width: 100%;
+    overflow: visible;
+    border: 0;
+    border-radius: 0;
+    background: #fff;
+    box-shadow: none;
+    color: #111827;
+    font-family: Arial, sans-serif;
+    font-size: 11px;
+    line-height: 1.4;
+    print-color-adjust: exact;
+    -webkit-print-color-adjust: exact;
+  }
+
+  body.printing-verification-slip * {
+    visibility: hidden !important;
+  }
+
+  body.printing-verification-slip .verification-slip-print,
+  body.printing-verification-slip .verification-slip-print * {
+    visibility: visible !important;
+  }
+
+  body.printing-verification-slip .verification-slip-print {
+    position: absolute;
+    inset: 0 auto auto 0;
+    width: 100%;
+    overflow: visible;
+    border-color: #cbd5e1 !important;
+    border-radius: 0;
+    background: #fff !important;
+    color: #111827 !important;
+    box-shadow: none;
+    print-color-adjust: exact;
+    -webkit-print-color-adjust: exact;
+  }
+
+  .records-print-header {
+    display: block;
+    padding: 0 0 14px;
+    text-align: center;
+  }
+
+  .records-print-logo {
+    display: block;
+    width: 72px;
+    height: 72px;
+    margin: 0 auto 7px;
+    border-radius: 50%;
+    object-fit: contain;
+  }
+
+  .records-print-header h1 {
+    margin: 0;
+    color: #111827;
+    font-size: 25px;
+    font-weight: 700;
+    letter-spacing: 0.02em;
+  }
+
+  .records-print-department {
+    margin: 3px 0 0;
+    color: #374151;
+    font-size: 15px;
+  }
+
+  .records-print-faculty {
+    margin: 1px 0 0;
+    color: #374151;
+    font-size: 12px;
+  }
+
+  .records-print-header h2 {
+    margin: 16px 0 12px;
+    color: #111827;
+    font-size: 19px;
+    font-weight: 700;
+  }
+
+  .records-print-meta {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 3px 18px;
+    padding: 10px 12px;
+    border: 1px solid #e5e7eb;
+    border-radius: 9px;
+    color: #1f2937;
+    font-size: 10px;
+    text-align: left;
+  }
+
+  .records-print-meta p {
+    margin: 0;
+  }
+
+  .records-print-table-wrap {
+    overflow: visible !important;
+  }
+
+  .records-print-table {
+    width: 100%;
+    border-collapse: collapse;
+    table-layout: fixed;
+  }
+
+  body.printing-mobile-sheet .records-print-header {
+    padding-bottom: 10px;
+  }
+
+  body.printing-mobile-sheet .records-print-logo {
+    width: 58px;
+    height: 58px;
+  }
+
+  body.printing-mobile-sheet .records-print-header h1 {
+    font-size: 19px;
+  }
+
+  body.printing-mobile-sheet .records-print-department {
+    font-size: 12px;
+  }
+
+  body.printing-mobile-sheet .records-print-faculty {
+    font-size: 10px;
+  }
+
+  body.printing-mobile-sheet .records-print-header h2 {
+    margin: 9px 0 8px;
+    font-size: 14px;
+  }
+
+  body.printing-mobile-sheet .records-print-meta {
+    gap: 3px 10px;
+    padding: 7px 8px;
+    font-size: 8px;
+  }
+
+  body.printing-mobile-sheet .records-print-table th,
+  body.printing-mobile-sheet .records-print-table td {
+    padding: 6px 3px !important;
+    font-size: 7.5px !important;
+    white-space: normal;
+    overflow-wrap: anywhere;
+  }
+
+  body.printing-mobile-sheet .records-print-table th:nth-child(1) { width: 24%; }
+  body.printing-mobile-sheet .records-print-table th:nth-child(2) { width: 17%; }
+  body.printing-mobile-sheet .records-print-table th:nth-child(3) { width: 12%; }
+  body.printing-mobile-sheet .records-print-table th:nth-child(4) { width: 24%; }
+  body.printing-mobile-sheet .records-print-table th:nth-child(5) { width: 23%; }
+
+  body.printing-mobile-sheet .records-print-signatures {
+    gap: 12px;
+    margin-top: 14px;
+  }
+
+  body.printing-mobile-sheet .records-print-signatures h3,
+  body.printing-mobile-sheet .records-print-signatures p {
+    font-size: 7px;
+  }
+
+  .records-print-table thead {
+    display: table-header-group;
+  }
+
+  .records-print-table th {
+    padding: 8px 5px !important;
+    border-bottom: 1px solid #e5e7eb;
+    background: #f8fafc !important;
+    color: #475569 !important;
+    font-size: 9px !important;
+    letter-spacing: 0.035em;
+    text-align: left;
+    text-transform: uppercase;
+  }
+
+  .records-print-table td {
+    padding: 8px 5px !important;
+    border-bottom: 1px solid #e5e7eb !important;
+    color: #1f2937 !important;
+    font-size: 9px !important;
+    vertical-align: middle;
+    overflow-wrap: anywhere;
+  }
+
+  .records-print-table th:nth-child(3),
+  .records-print-table td:nth-child(3) {
+    text-align: center;
+  }
+
+  .records-print-table th:nth-child(6),
+  .records-print-table td:nth-child(6),
+  .records-print-table th:nth-child(7),
+  .records-print-table td:nth-child(7) {
+    display: none !important;
+  }
+
+  .records-print-table tbody tr {
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+
+  .records-print-table td span {
+    border: 0 !important;
+    padding: 0 !important;
+    background: transparent !important;
+    color: inherit !important;
+  }
+
+  .records-print-table td:nth-child(3) span {
+    font-weight: 700;
+    text-transform: capitalize;
+  }
+
+  .records-print-table td:nth-child(3) span.bg-emerald-100 {
+    color: #047857 !important;
+  }
+
+  .records-print-table td:nth-child(3) span.bg-amber-100 {
+    color: #b45309 !important;
+  }
+
+  .records-print-table td:nth-child(3) span.bg-rose-100 {
+    color: #be123c !important;
+  }
+
+  .records-print-signatures {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 22px;
+    margin-top: 24px;
+    break-inside: avoid;
+    page-break-inside: avoid;
+    text-align: center;
+  }
+
+  .records-print-signatures h3 {
+    min-height: 26px;
+    margin: 0 0 8px;
+    color: #334155;
+    font-size: 9px;
+    line-height: 1.35;
+  }
+
+  .records-print-signatures section > div {
+    height: 25px;
+    margin-bottom: 7px;
+    border-bottom: 1px solid #94a3b8;
+  }
+
+  .records-print-signatures p {
+    min-height: 24px;
+    margin: 0;
+    color: #475569;
+    font-size: 9px;
+    overflow-wrap: anywhere;
+  }
+
+  .class-sheet-header {
+    text-align: center;
+  }
+
+  body.printing-mobile-sheet .class-attendance-print {
+    font-size: 9px;
+  }
+
+  body.printing-mobile-sheet .class-sheet-logo {
+    width: 58px;
+    height: 58px;
+  }
+
+  body.printing-mobile-sheet .class-sheet-header h1 {
+    font-size: 20px;
+  }
+
+  body.printing-mobile-sheet .class-sheet-department {
+    font-size: 13px;
+  }
+
+  body.printing-mobile-sheet .class-sheet-faculty {
+    font-size: 10px;
+  }
+
+  body.printing-mobile-sheet .class-sheet-header h2 {
+    margin: 10px 0;
+    font-size: 15px;
+  }
+
+  body.printing-mobile-sheet .class-sheet-meta {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    gap: 10px;
+    margin-bottom: 12px;
+  }
+
+  body.printing-mobile-sheet .class-sheet-course-details {
+    font-size: 10px;
+  }
+
+  body.printing-mobile-sheet .class-sheet-session-meta {
+    padding: 7px;
+    font-size: 8px;
+    overflow-wrap: anywhere;
+  }
+
+  .class-sheet-logo {
+    display: block;
+    width: 90px;
+    height: 90px;
+    margin: 0 auto 8px;
+    border-radius: 50%;
+    object-fit: contain;
+  }
+
+  .class-sheet-header h1 {
+    margin: 0;
+    color: #111827;
+    font-size: 32px;
+    font-weight: 700;
+    line-height: 1.15;
+  }
+
+  .class-sheet-department {
+    margin: 5px 0 0;
+    color: #374151;
+    font-size: 18px;
+  }
+
+  .class-sheet-faculty {
+    margin: 2px 0 0;
+    color: #374151;
+    font-size: 14px;
+  }
+
+  .class-sheet-header h2 {
+    margin: 26px 0 16px;
+    color: #111827;
+    font-size: 24px;
+    font-weight: 700;
+  }
+
+  .class-sheet-meta {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(260px, 0.9fr);
+    align-items: start;
+    gap: 20px;
+    margin-bottom: 20px;
+  }
+
+  .class-sheet-course-details {
+    padding-top: 4px;
+    color: #64748b;
+    font-size: 15px;
+  }
+
+  .class-sheet-course-details p,
+  .class-sheet-session-meta p {
+    margin: 0 0 7px;
+  }
+
+  .class-sheet-course-details strong {
+    color: #047857;
+  }
+
+  .class-sheet-session-meta {
+    padding: 12px;
+    border: 1px solid #e5e7eb;
+    border-radius: 10px;
+    color: #1f2937;
+    font-size: 12px;
+  }
+
+  .class-sheet-table {
+    width: 100%;
+    border-collapse: collapse;
+    table-layout: fixed;
+  }
+
+  body.printing-mobile-sheet .class-sheet-table th,
+  body.printing-mobile-sheet .class-sheet-table td {
+    padding: 6px 3px;
+    font-size: 8px;
+    overflow-wrap: anywhere;
+  }
+
+  body.printing-mobile-sheet .class-sheet-signatures {
+    gap: 12px;
+    margin-top: 18px;
+  }
+
+  body.printing-mobile-sheet .class-sheet-signatures h3,
+  body.printing-mobile-sheet .class-sheet-signatures p {
+    font-size: 8px;
+  }
+
+  .class-sheet-col-number { width: 7%; }
+  .class-sheet-col-name { width: 33%; }
+  .class-sheet-col-reg { width: 25%; }
+  .class-sheet-col-status { width: 15%; }
+  .class-sheet-col-time { width: 20%; }
+
+  .class-sheet-table thead {
+    display: table-header-group;
+  }
+
+  .class-sheet-table th {
+    padding: 10px 7px;
+    background: #f8fafc;
+    color: #475569;
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.05em;
+    text-align: left;
+    text-transform: uppercase;
+  }
+
+  .class-sheet-table td {
+    height: 34px;
+    padding: 8px 7px;
+    border-bottom: 1px solid #e5e7eb;
+    color: #1f2937;
+    font-size: 12px;
+    vertical-align: middle;
+    overflow-wrap: anywhere;
+  }
+
+  .class-sheet-table .class-sheet-centered,
+  .class-sheet-table th:first-child,
+  .class-sheet-table th:nth-child(4),
+  .class-sheet-table th:nth-child(5) {
+    text-align: center;
+  }
+
+  .class-sheet-table tbody tr {
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+
+  .class-sheet-table .class-sheet-status {
+    font-weight: 700;
+  }
+
+  .class-sheet-status-present { color: #047857 !important; }
+  .class-sheet-status-late { color: #b45309 !important; }
+  .class-sheet-status-absent { color: #be123c !important; }
+
+  .class-sheet-empty {
+    text-align: center;
+  }
+
+  .class-sheet-signatures {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 24px;
+    margin-top: 38px;
+    break-inside: avoid;
+    page-break-inside: avoid;
+    text-align: center;
+  }
+
+  .class-sheet-signatures h3 {
+    margin: 0 0 38px;
+    color: #334155;
+    font-size: 12px;
+    font-weight: 700;
+  }
+
+  .class-sheet-signature-line {
+    width: min(260px, 100%);
+    height: 1px;
+    margin: 0 auto 8px;
+    background: #64748b;
+  }
+
+  .class-sheet-signatures p {
+    margin: 2px 0;
+    color: #64748b;
+    font-size: 11px;
+  }
+}
+
+/* Custom scrollbar for clean dashboard aesthetic */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: rgba(148, 163, 184, 0.35);
+  border-radius: 9999px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(148, 163, 184, 0.6);
+}
