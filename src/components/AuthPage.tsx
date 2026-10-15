@@ -68,7 +68,9 @@ export const AuthPage: React.FC<AuthPageProps> = ({
   const [email, setEmail] = useState('');
   const [accountRole, setAccountRole] = useState<'student' | 'lecturer' | 'dev_admin'>('student');
   const [signupAuthorizationPasskey, setSignupAuthorizationPasskey] = useState('');
+  const [showSignupAuthorizationPasskey, setShowSignupAuthorizationPasskey] = useState(false);
   const [devAuthorizationPasskey, setDevAuthorizationPasskey] = useState('');
+  const [showDevAuthorizationPasskey, setShowDevAuthorizationPasskey] = useState(false);
   const [department, setDepartment] = useState('');
   const [faculty, setFaculty] = useState('');
   const [academicId, setAcademicId] = useState('');
@@ -101,7 +103,9 @@ export const AuthPage: React.FC<AuthPageProps> = ({
     setEmail('');
     setAccountRole('student');
     setSignupAuthorizationPasskey('');
+    setShowSignupAuthorizationPasskey(false);
     setDevAuthorizationPasskey('');
+    setShowDevAuthorizationPasskey(false);
     setDepartment('');
     setFaculty('');
     setAcademicId('');
@@ -662,7 +666,9 @@ export const AuthPage: React.FC<AuthPageProps> = ({
                         setSignupError(null);
                         setDevSignupError(null);
                         setSignupAuthorizationPasskey('');
+                        setShowSignupAuthorizationPasskey(false);
                         setDevAuthorizationPasskey('');
+                        setShowDevAuthorizationPasskey(false);
                       }
                     }}
                     className="min-h-[44px] w-full rounded-xl border border-slate-200 bg-slate-50 px-3.5 py-2.5 text-slate-900 focus:border-[#008751] focus:bg-white focus:outline-hidden focus:ring-2 focus:ring-[#008751]/20"
@@ -766,17 +772,30 @@ export const AuthPage: React.FC<AuthPageProps> = ({
                         <KeyRound className="h-3.5 w-3.5 text-[#008751]" />
                         Student/Lecturer signup passkey
                       </label>
-                      <input
-                        id="signup-authorization"
-                        type="password"
-                        required
-                        minLength={12}
-                        maxLength={256}
-                        value={signupAuthorizationPasskey}
-                        onChange={(event) => setSignupAuthorizationPasskey(event.target.value)}
-                        autoComplete="off"
-                        className="w-full rounded-lg border border-emerald-200 bg-white px-3 py-2 text-xs text-slate-900 focus:border-[#008751] focus:outline-hidden focus:ring-2 focus:ring-[#008751]/20"
-                      />
+                      <div className="relative">
+                        <input
+                          id="signup-authorization"
+                          type={showSignupAuthorizationPasskey ? 'text' : 'password'}
+                          required
+                          minLength={12}
+                          maxLength={256}
+                          value={signupAuthorizationPasskey}
+                          onChange={(event) => setSignupAuthorizationPasskey(event.target.value)}
+                          autoComplete="off"
+                          className="w-full rounded-lg border border-emerald-200 bg-white py-2 pl-3 pr-10 text-xs text-slate-900 focus:border-[#008751] focus:outline-hidden focus:ring-2 focus:ring-[#008751]/20"
+                        />
+                        <button
+                          type="button"
+                          aria-label={showSignupAuthorizationPasskey ? 'Hide signup passkey' : 'Show signup passkey'}
+                          aria-pressed={showSignupAuthorizationPasskey}
+                          onClick={() => setShowSignupAuthorizationPasskey((visible) => !visible)}
+                          className="absolute inset-y-0 right-0 flex items-center px-3 text-slate-500 hover:text-slate-800 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#008751]"
+                        >
+                          {showSignupAuthorizationPasskey
+                            ? <EyeOff className="h-4 w-4" aria-hidden="true" />
+                            : <Eye className="h-4 w-4" aria-hidden="true" />}
+                        </button>
+                      </div>
                     </div>
                   </>
                 )}
@@ -787,17 +806,30 @@ export const AuthPage: React.FC<AuthPageProps> = ({
                       <KeyRound className="h-3.5 w-3.5 text-indigo-700" />
                       Dev Admin authorization passkey
                     </label>
-                    <input
-                      id="dev-signup-authorization"
-                      type="password"
-                      required
-                      maxLength={256}
-                      minLength={12}
-                      value={devAuthorizationPasskey}
-                      onChange={(event) => setDevAuthorizationPasskey(event.target.value)}
-                      autoComplete="off"
-                      className="w-full rounded-lg border border-indigo-200 bg-white px-3 py-2 text-xs text-slate-900 focus:border-indigo-700 focus:outline-hidden focus:ring-2 focus:ring-indigo-700/20"
-                    />
+                    <div className="relative">
+                      <input
+                        id="dev-signup-authorization"
+                        type={showDevAuthorizationPasskey ? 'text' : 'password'}
+                        required
+                        maxLength={256}
+                        minLength={12}
+                        value={devAuthorizationPasskey}
+                        onChange={(event) => setDevAuthorizationPasskey(event.target.value)}
+                        autoComplete="off"
+                        className="w-full rounded-lg border border-indigo-200 bg-white py-2 pl-3 pr-10 text-xs text-slate-900 focus:border-indigo-700 focus:outline-hidden focus:ring-2 focus:ring-indigo-700/20"
+                      />
+                      <button
+                        type="button"
+                        aria-label={showDevAuthorizationPasskey ? 'Hide Dev Admin passkey' : 'Show Dev Admin passkey'}
+                        aria-pressed={showDevAuthorizationPasskey}
+                        onClick={() => setShowDevAuthorizationPasskey((visible) => !visible)}
+                        className="absolute inset-y-0 right-0 flex items-center px-3 text-slate-500 hover:text-slate-800 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-700"
+                      >
+                        {showDevAuthorizationPasskey
+                          ? <EyeOff className="h-4 w-4" aria-hidden="true" />
+                          : <Eye className="h-4 w-4" aria-hidden="true" />}
+                      </button>
+                    </div>
                   </div>
                 )}
 
