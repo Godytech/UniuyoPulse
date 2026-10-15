@@ -12,8 +12,9 @@ import {
   Calendar,
   AlertCircle
 } from 'lucide-react';
-import { Course, AttendanceSession, User } from '../types';
+import { Course } from '../types';
 import { soundManager } from '../lib/sound';
+import type { NewAttendanceSession } from '../lib/firebase';
 
 function getAcademicTerm(semesterName?: string): { semester: string; academicSession: string } | null {
   const match = semesterName?.match(/^(First|Second) Semester\s+(\d{4}\/\d{4})$/i);
@@ -26,14 +27,12 @@ function getAcademicTerm(semesterName?: string): { semester: string; academicSes
 
 interface CreateSessionModalProps {
   courses: Course[];
-  currentUser: User;
   onClose: () => void;
-  onCreateSession: (session: AttendanceSession) => void;
+  onCreateSession: (session: NewAttendanceSession) => Promise<void>;
 }
 
 export const CreateSessionModal: React.FC<CreateSessionModalProps> = ({
   courses,
-  currentUser,
   onClose,
   onCreateSession
 }) => {
@@ -55,6 +54,7 @@ export const CreateSessionModal: React.FC<CreateSessionModalProps> = ({
   const [durationMinutes, setDurationMinutes] = useState(60);
   const [graceMinutes, setGraceMinutes] = useState(15);
   const [formError, setFormError] = useState<string | null>(null);
+  const [isCreating, setIsCreating] = useState(false);
 
   const selectedCourse = courses.find((c) => c.id === selectedCourseId);
 
@@ -95,7 +95,7 @@ export const CreateSessionModal: React.FC<CreateSessionModalProps> = ({
     );
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedCourse) {
       setFormError('Create or assign a course before opening an attendance session.');
@@ -127,36 +127,27 @@ export const CreateSessionModal: React.FC<CreateSessionModalProps> = ({
     setFormError(null);
     soundManager.playGpsLock();
 
-    const now = new Date();
-    const endTime = new Date(now.getTime() + durationMinutes * 60 * 1000);
-    const randomValue = crypto.getRandomValues(new Uint32Array(1))[0];
-    const pin = String(100000 + (randomValue % 900000));
-
-    const newSession: AttendanceSession = {
-      id: `sess_${Date.now()}`,
-      courseId: selectedCourse.id,
-      courseCode: selectedCourse.code,
-      courseTitle: selectedCourse.title,
-      semesterId: selectedCourse.semesterId,
-      semesterName,
-      lecturerId: currentUser.id,
-      lecturerName: currentUser.fullName,
-      status: 'active',
-      startTime: now.toISOString(),
-      endTime: endTime.toISOString(),
-      latitude: deviceLocation.latitude,
-      longitude: deviceLocation.longitude,
-      radiusMeters,
-      locationName: customLocationName.trim(),
-      accessCode: pin,
-      lateThresholdMinutes: graceMinutes,
-      totalAttendees: 0,
-      maxStudents: selectedCourse.enrolledStudentCount
-    };
-
-    onCreateSession(newSession);
-    soundManager.playVerificationSuccess();
-    onClose();
+    setIsCreating(true);
+    try {
+      await onCreateSession({
+        courseId: selectedCourse.id,
+        semesterName,
+        latitude: deviceLocation.latitude,
+        longitude: deviceLocation.longitude,
+        locationAccuracyMeters: deviceLocation.accuracy,
+        radiusMeters,
+        locationName: customLocationName.trim(),
+        durationMinutes,
+        lateThresholdMinutes: graceMinutes
+      });
+      soundManager.playVerificationSuccess();
+      onClose();
+    } catch (error) {
+      setFormError(error instanceof Error ? error.message : 'Could not create the attendance session.');
+      soundManager.playErrorBuzz();
+    } finally {
+      setIsCreating(false);
+    }
   };
 
   return (
@@ -394,11 +385,11 @@ export const CreateSessionModal: React.FC<CreateSessionModalProps> = ({
           <button
             type="button"
             onClick={handleSubmit}
-            disabled={!selectedCourse || !deviceLocation || deviceLocation.accuracy > 50 || isLocating}
+            disabled={!selectedCourse || !deviceLocation || deviceLocation.accuracy > 50 || isLocating || isCreating}
             className="px-6 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed text-xs font-extrabold text-white flex items-center gap-2 shadow-md shadow-indigo-600/20 cursor-pointer"
           >
             <Radio className="w-4 h-4" />
-            <span>Create Attendance Session</span>
+            <span>{isCreating ? 'Creating session…' : 'Create Attendance Session'}</span>
           </button>
         </div>
       </div>

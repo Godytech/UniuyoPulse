@@ -20,6 +20,7 @@ import {
 import { User, AttendanceNotification, NavTab, ThemeMode } from '../types';
 import { soundManager } from '../lib/sound';
 import { getInitials } from '../lib/avatar';
+import { can, roleLabel } from '../lib/permissions';
 
 interface TopHeaderProps {
   currentUser: User;
@@ -73,7 +74,7 @@ export const TopHeader: React.FC<TopHeaderProps> = ({
       case 'home':
         return 'Dashboard';
       case 'courses':
-        return currentUser.role === 'student' ? 'My Courses' : 'Course Management';
+        return can(currentUser, 'records.viewAll') ? 'Course Management' : 'My Courses';
       case 'records':
       case 'history':
         return 'Attendance Records';
@@ -88,6 +89,20 @@ export const TopHeader: React.FC<TopHeaderProps> = ({
       case 'profile':
       case 'settings':
         return 'Account & Geofence Settings';
+      case 'dev_live_ops':
+        return 'Live Operations';
+      case 'dev_explorer':
+        return 'Faculty & Department Explorer';
+      case 'dev_people':
+        return 'People Directory';
+      case 'dev_activity':
+        return 'Activity Feed & Audit Log';
+      case 'dev_anomalies':
+        return 'Anomaly & Integrity Alerts';
+      case 'dev_analytics':
+        return 'Analytics & Reports';
+      case 'dev_system':
+        return 'System & Config';
       default:
         return 'Dashboard';
     }
@@ -293,13 +308,7 @@ export const TopHeader: React.FC<TopHeaderProps> = ({
                   {currentUser.fullName}
                 </p>
                 <p className="text-[10px] text-slate-500 capitalize">
-                  {currentUser.role === 'lecturer'
-                    ? 'Lecturer'
-                    : currentUser.role === 'assistant_course_rep'
-                      ? 'Assistant Course Rep'
-                      : currentUser.role === 'rep_admin' || currentUser.role === 'course_rep_admin'
-                        ? 'Course Rep Admin'
-                        : 'Student'}
+                  {roleLabel(currentUser)}
                 </p>
               </div>
               <ChevronDown className="w-3.5 h-3.5 text-slate-400" />

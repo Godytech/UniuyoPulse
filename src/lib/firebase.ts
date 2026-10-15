@@ -9,8 +9,18 @@ import {
   signInWithEmailAndPassword,
   signOut
 } from 'firebase/auth';
-import type { AuthUser, CourseRepRole, StudentDetail, User } from '../types';
-import type { Course, TimetableEntry } from '../types';
+import { getFunctions, httpsCallable } from 'firebase/functions';
+import type {
+  AttendanceRecord,
+  AttendanceSession,
+  AttendanceNotification,
+  AuthUser,
+  Course,
+  CourseRepRole,
+  StudentDetail,
+  TimetableEntry,
+  User
+} from '../types';
 
 const firebaseConfig = {
   apiKey: import.meta.env.VITE_FIREBASE_API_KEY || 'AIzaSyDfQ7p22J0TYA9fAKK9SThJIJ8JYYJf4YQ',
@@ -23,12 +33,86 @@ const firebaseConfig = {
 
 const app = initializeApp(firebaseConfig);
 export const firebaseAuth = initializeAuth(app, { persistence: browserSessionPersistence });
+const firebaseFunctions = getFunctions(app);
 
 const USER_PROFILES = 'userProfiles';
-const STUDENTS = 'students';
-const STUDENT_AUTHORIZATION_CONFIG = 'appConfig/studentAuthorization';
-const LECTURER_AUTHORIZATION_CONFIG = 'appConfig/lecturerAuthorization';
 let firestoreModulePromise: Promise<typeof import('firebase/firestore')> | undefined;
+
+export interface CollectionFilter {
+  field: string;
+  value: string;
+}
+
+export interface SemesterAcademicData {
+  semesterId: string;
+  semesterName: string;
+  courses?: Course[];
+  timetable?: TimetableEntry[];
+}
+
+export interface NewAttendanceSession {
+  courseId: string;
+  semesterName: string;
+  locationName: string;
+  latitude: number;
+  longitude: number;
+  locationAccuracyMeters: number;
+  radiusMeters: number;
+  durationMinutes: number;
+  lateThresholdMinutes: number;
+}
+
+export interface AttendanceCheckIn {
+  sessionId: string;
+  accessCode: string;
+  latitude: number;
+  longitude: number;
+  accuracy: number;
+  deviceFingerprint?: string;
+}
+
+export interface DevAdminSnapshot {
+  faculties: import('../types').Faculty[];
+  courses: Course[];
+  timetable: TimetableEntry[];
+  sessions: AttendanceSession[];
+  records: AttendanceRecord[];
+  notifications: AttendanceNotification[];
+  students: StudentDetail[];
+  userProfiles: User[];
+  auditLog: import('../types').AuditLogEntry[];
+  integrityAlerts: Array<{ id: string; status: 'acknowledged' | 'resolved'; title: string; evidence: string }>;
+  appConfig: Record<string, unknown>[];
+}
+
+export async function getDevAdminSnapshot(): Promise<DevAdminSnapshot> {
+  const getSnapshot = httpsCallable<void, DevAdminSnapshot>(firebaseFunctions, 'getDevAdminSnapshot');
+  const result = await getSnapshot();
+  return result.data;
+}
+
+export async function runDevAdminAction<T = { success: boolean }>(
+  input: {
+    action: string;
+    targetId: string;
+    reason: string;
+    [key: string]: unknown;
+  }
+): Promise<T> {
+  const runAction = httpsCallable<typeof input, T>(firebaseFunctions, 'devAdminAction');
+  const result = await runAction(input);
+  return result.data;
+}
+
+export async function logActivity(input: {
+  action: string;
+  targetType?: string;
+  targetId?: string;
+  details?: string;
+}): Promise<void> {
+  const log = httpsCallable<typeof input, void>(firebaseFunctions, 'logActivity');
+  await log(input);
+}
 
 export class EmailVerificationRequiredError extends Error {
   constructor() {
@@ -42,100 +126,146 @@ function loadFirestoreModule(): Promise<typeof import('firebase/firestore')> {
   return firestoreModulePromise;
 }
 
-function toStudentDetail(uid: string, user: AuthUser | User): StudentDetail {
-  return {
-    id: uid,
-    role: user.role,
-    fullName: user.fullName,
-    studentId: user.studentId ?? '',
-    department: user.department,
-    ...(user.faculty === undefined ? {} : { faculty: user.faculty }),
-    level: user.level,
-    email: user.email,
-    avatar: user.avatar || `${import.meta.env.BASE_URL}assets/uniuyo-logo.png`,
-    ...(user.semester === undefined ? {} : { semester: user.semester }),
-    ...(user.academicSession === undefined ? {} : { academicSession: user.academicSession }),
-    attendanceRate: 0,
-    presentCount: 0,
-    lateCount: 0,
-    absentCount: 0,
-    status: 'Good Standing',
-    enrolledCourses: []
-  };
-}
-
-export async function syncStudentDirectoryProfile(uid: string, user: AuthUser | User): Promise<void> {
-  if (user.role === 'lecturer') return;
-
-  const { doc, getFirestore, setDoc } = await loadFirestoreModule();
-  const firestore = getFirestore(app);
-  await setDoc(doc(firestore, STUDENTS, uid), toStudentDetail(uid, user), { merge: true });
-}
-
 export async function assignStudentCourseRepRole(
   student: StudentDetail,
   role: CourseRepRole | 'student'
 ): Promise<void> {
-  const { doc, getFirestore, writeBatch } = await loadFirestoreModule();
-  const firestore = getFirestore(app);
-  const batch = writeBatch(firestore);
-  batch.update(doc(firestore, USER_PROFILES, student.id), { role });
-  batch.set(
-    doc(firestore, STUDENTS, student.id),
-    { ...student, role },
-    { merge: true }
+  const assign = httpsCallable(firebaseFunctions, 'assignCourseRepRole');
+  await assign({ studentUid: student.id, role });
+}
+
+export async function getSessionAccessCodes(): Promise<Record<string, string>> {
+  const getCodes = httpsCallable<void, Record<string, string>>(firebaseFunctions, 'getSessionAccessCodes');
+  const result = await getCodes();
+  return result.data;
+}
+
+export async function createAttendanceSession(input: NewAttendanceSession): Promise<AttendanceSession> {
+  const create = httpsCallable<NewAttendanceSession, { session: AttendanceSession }>(
+    firebaseFunctions,
+    'createAttendanceSession'
   );
-  await batch.commit();
+  const result = await create(input);
+  return result.data.session;
 }
 
-export async function validateLecturerPasskey(passkey: string): Promise<boolean> {
-  return validateAuthorizationPasskey(passkey, LECTURER_AUTHORIZATION_CONFIG, 'Lecturer');
+export async function saveSemesterAcademicData(
+  data: SemesterAcademicData
+): Promise<Pick<SemesterAcademicData, 'courses' | 'timetable'>> {
+  const save = httpsCallable<
+    SemesterAcademicData,
+    { success: boolean; courses?: Course[]; timetable?: TimetableEntry[] }
+  >(
+    firebaseFunctions,
+    'saveSemesterAcademicData'
+  );
+  const result = await save(data);
+  return result.data;
 }
 
-export async function validateStudentPasskey(passkey: string): Promise<boolean> {
-  return validateAuthorizationPasskey(passkey, STUDENT_AUTHORIZATION_CONFIG, 'Student');
+export async function closeAttendanceSession(sessionId: string): Promise<void> {
+  const close = httpsCallable(firebaseFunctions, 'closeAttendanceSession');
+  await close({ sessionId });
 }
 
-async function validateAuthorizationPasskey(
-  passkey: string,
-  documentPath: string,
-  roleName: string
-): Promise<boolean> {
-  const { doc, getDoc, getFirestore } = await loadFirestoreModule();
-  const firestore = getFirestore(app);
-  const configSnapshot = await getDoc(doc(firestore, documentPath));
-  if (!configSnapshot.exists()) {
-    throw new Error(`${roleName} passkey is not configured in Firebase. Create ${documentPath} with a string passkey field.`);
-  }
-
-  const configuredPasskey = configSnapshot.data().passkey;
-  if (typeof configuredPasskey !== 'string' || configuredPasskey.length === 0) {
-    throw new Error(`${roleName} passkey configuration in Firebase is invalid.`);
-  }
-
-  return configuredPasskey === passkey.trim();
+export async function submitAttendanceCheckIn(input: AttendanceCheckIn): Promise<AttendanceRecord> {
+  const submit = httpsCallable<AttendanceCheckIn, AttendanceRecord>(
+    firebaseFunctions,
+    'submitAttendanceCheckIn'
+  );
+  const result = await submit(input);
+  return result.data;
 }
 
-export async function createFirebaseAccount(user: AuthUser, password: string): Promise<void> {
+export async function getAttendanceRecords(
+  department: string,
+  userId: string,
+  isStaff: boolean
+): Promise<AttendanceRecord[]> {
+  return readFirestoreCollection<AttendanceRecord>(
+    'records',
+    isStaff
+      ? { field: 'department', value: department }
+      : { field: 'studentId', value: userId }
+  );
+}
+
+export async function createFirebaseAccount(
+  user: Pick<AuthUser, 'email' | 'fullName'>,
+  password: string,
+  invitationCode: string,
+  requestedRole: 'student' | 'lecturer'
+): Promise<void> {
   const credential = await createUserWithEmailAndPassword(firebaseAuth, user.email, password);
+  let registrationStarted = false;
   try {
     await sendEmailVerification(credential.user);
-    const { doc, getFirestore, writeBatch } = await loadFirestoreModule();
-    const firestore = getFirestore(app);
-    const batch = writeBatch(firestore);
-    batch.set(doc(firestore, USER_PROFILES, credential.user.uid), {
-      ...user,
-      uid: credential.user.uid
+    const completeRegistration = httpsCallable(firebaseFunctions, 'completeRegistration');
+    registrationStarted = true;
+    await completeRegistration({
+      invitationCode,
+      fullName: user.fullName,
+      requestedRole
     });
-    if (user.role === 'student') {
-      batch.set(
-        doc(firestore, STUDENTS, credential.user.uid),
-        toStudentDetail(credential.user.uid, user)
-      );
-    }
-    await batch.commit();
+    await credential.user.getIdToken(true);
   } catch (error) {
-    await deleteUser(credential.user);
+    const code = typeof error === 'object' && error !== null && 'code' in error
+      ? String(error.code)
+      : '';
+    if (
+      !registrationStarted ||
+      ['functions/invalid-argument', 'functions/permission-denied', 'functions/unauthenticated'].includes(code)
+    ) {
+      await deleteUser(credential.user);
+    }
+    throw error;
+  }
+}
+
+export async function createDevAdminAccount(
+  user: Pick<AuthUser, 'email' | 'fullName'>,
+  password: string,
+  passkey: string
+): Promise<void> {
+  const prepareRegistration = httpsCallable<
+    { email: string; passkey: string },
+    { registrationTicket: string }
+  >(firebaseFunctions, 'prepareDevAdminRegistration');
+  const preparation = await prepareRegistration({
+    email: user.email.trim().toLowerCase(),
+    passkey
+  });
+  const credential = await createUserWithEmailAndPassword(firebaseAuth, user.email, password);
+  let registrationStarted = false;
+  try {
+    await sendEmailVerification(credential.user);
+    const completeRegistration = httpsCallable<
+      { fullName: string; registrationTicket: string },
+      { success: boolean }
+    >(firebaseFunctions, 'completeDevAdminRegistration');
+    registrationStarted = true;
+    await completeRegistration({
+      fullName: user.fullName,
+      registrationTicket: preparation.data.registrationTicket
+    });
+    await credential.user.getIdToken(true);
+  } catch (error) {
+    const code = typeof error === 'object' && error !== null && 'code' in error
+      ? String(error.code)
+      : '';
+    if (
+      !registrationStarted ||
+      [
+        'functions/already-exists',
+        'functions/failed-precondition',
+        'functions/invalid-argument',
+        'functions/permission-denied',
+        'functions/resource-exhausted',
+        'functions/unauthenticated'
+      ].includes(code)
+    ) {
+      await deleteUser(credential.user);
+    }
     throw error;
   }
 }
@@ -147,8 +277,8 @@ export async function signInFirebaseAccount(identifier: string, password: string
   }
 
   try {
+    await credential.user.getIdToken(true);
     const user = await getFirebaseUserProfile(credential.user.uid);
-    await syncStudentDirectoryProfile(credential.user.uid, user);
     return user;
   } catch (error) {
     await signOut(firebaseAuth);
@@ -179,61 +309,30 @@ export async function refreshVerifiedFirebaseUser(): Promise<User | null> {
     return null;
   }
 
-  const profile = await getFirebaseUserProfile(user.uid);
-  await syncStudentDirectoryProfile(user.uid, profile);
-  return profile;
+  await user.getIdToken(true);
+  return getFirebaseUserProfile(user.uid);
 }
 
 export async function signOutFirebaseAccount(): Promise<void> {
   await signOut(firebaseAuth);
 }
 
-export async function updateFirebaseUserProfile(user: User): Promise<void> {
+export async function updateFirebaseUserProfile(user: User): Promise<User> {
   const authUser = firebaseAuth.currentUser;
-  if (
-    !authUser ||
-    authUser.uid !== user.id ||
-    !['student', 'course_rep_admin', 'assistant_course_rep', 'rep_admin'].includes(user.role)
-  ) {
-    throw new Error('You can only update your own student or course representative profile.');
+  if (!authUser || authUser.uid !== user.id) {
+    throw new Error('You can only update your own account profile.');
   }
 
-  const academicSession = user.academicSession?.trim() ?? '';
-  if (!/^\d{4}\/\d{4}$/.test(academicSession)) {
-    throw new Error('Enter the academic session in YYYY/YYYY format.');
-  }
-  if (user.semester !== 'First Semester' && user.semester !== 'Second Semester') {
-    throw new Error('Choose a valid semester.');
-  }
-
-  const { doc, getFirestore, writeBatch } = await loadFirestoreModule();
-  const firestore = getFirestore(app);
-  const batch = writeBatch(firestore);
-  const profile = {
+  const update = httpsCallable<
+    Pick<User, 'fullName' | 'semester' | 'academicSession'>,
+    User
+  >(firebaseFunctions, 'updateUserProfile');
+  const result = await update({
     fullName: user.fullName.trim(),
-    studentId: user.studentId?.trim().toUpperCase() ?? '',
-    department: user.department.trim(),
-    faculty: user.faculty?.trim() ?? '',
-    level: user.level.trim(),
     semester: user.semester,
-    academicSession
-  };
-  if (
-    !profile.fullName ||
-    !profile.studentId ||
-    !profile.department ||
-    !profile.faculty ||
-    !profile.level
-  ) {
-    throw new Error('Complete your name, registration number, faculty, department, and level.');
-  }
-  batch.update(doc(firestore, USER_PROFILES, user.id), profile);
-  batch.set(
-    doc(firestore, STUDENTS, user.id),
-    { id: user.id, role: user.role, ...profile, email: user.email, avatar: user.avatar || `${import.meta.env.BASE_URL}assets/uniuyo-logo.png` },
-    { merge: true }
-  );
-  await batch.commit();
+    academicSession: user.academicSession
+  });
+  return result.data;
 }
 
 export async function getFirebaseUserProfile(uid: string): Promise<User> {
@@ -244,114 +343,46 @@ export async function getFirebaseUserProfile(uid: string): Promise<User> {
     throw new Error('Your account profile is missing. Contact your administrator.');
   }
   const { uid: _uid, ...user } = profileSnapshot.data();
+  const authUser = firebaseAuth.currentUser;
+  const token = authUser?.uid === uid ? await authUser.getIdTokenResult() : null;
+  if (
+    !token ||
+    token.claims.role !== user.role ||
+    token.claims.department !== user.department ||
+    user.active === false
+  ) {
+    throw new Error('Account permissions are not configured correctly. Contact your administrator.');
+  }
   return user as User;
 }
 
 export async function readFirestoreCollection<T extends { id: string }>(
-  collectionName: string
+  collectionName: string,
+  filter?: CollectionFilter
 ): Promise<T[]> {
-  const { collection, getDocs, getFirestore } = await loadFirestoreModule();
+  const { collection, getDocs, getFirestore, query, where } = await loadFirestoreModule();
   const firestore = getFirestore(app);
-  const snapshot = await getDocs(collection(firestore, collectionName));
+  const collectionRef = collection(firestore, collectionName);
+  const snapshot = await getDocs(
+    filter ? query(collectionRef, where(filter.field, '==', filter.value)) : collectionRef
+  );
   return snapshot.docs.map((item) => item.data() as T);
 }
 
 export async function subscribeFirestoreCollection<T extends { id: string }>(
   collectionName: string,
   onData: (items: T[]) => void,
-  onError: (error: Error) => void
+  onError: (error: Error) => void,
+  filter?: CollectionFilter
 ): Promise<() => void> {
-  const { collection, getFirestore, onSnapshot } = await loadFirestoreModule();
+  const { collection, getFirestore, onSnapshot, query, where } = await loadFirestoreModule();
   const firestore = getFirestore(app);
+  const collectionRef = collection(firestore, collectionName);
   return onSnapshot(
-    collection(firestore, collectionName),
+    filter ? query(collectionRef, where(filter.field, '==', filter.value)) : collectionRef,
     (snapshot) => onData(snapshot.docs.map((item) => item.data() as T)),
     onError
   );
-}
-
-export async function replaceFirestoreCollection<T extends { id: string }>(
-  collectionName: string,
-  items: T[]
-): Promise<void> {
-  const { collection, doc, getDocs, getFirestore, writeBatch } = await loadFirestoreModule();
-  const firestore = getFirestore(app);
-  const target = collection(firestore, collectionName);
-  const existing = await getDocs(target);
-  const itemIds = new Set(items.map((item) => item.id));
-  const staleDocuments = existing.docs.filter((document) => !itemIds.has(document.id));
-
-  for (let index = 0; index < staleDocuments.length; index += 450) {
-    const batch = writeBatch(firestore);
-    staleDocuments.slice(index, index + 450).forEach((document) => batch.delete(document.ref));
-    await batch.commit();
-  }
-
-  for (let index = 0; index < items.length; index += 450) {
-    const batch = writeBatch(firestore);
-    items.slice(index, index + 450).forEach((item) => {
-      batch.set(doc(target, item.id), item);
-    });
-    await batch.commit();
-  }
-}
-
-export async function replaceSemesterDepartmentData(
-  data: {
-    semesterId: string;
-    semesterName: string;
-    courses: Course[];
-    timetable: TimetableEntry[];
-  },
-  department: string
-): Promise<void> {
-  const { collection, doc, getDocs, getFirestore, writeBatch } = await loadFirestoreModule();
-  const firestore = getFirestore(app);
-  const coursesCollection = collection(firestore, 'courses');
-  const timetableCollection = collection(firestore, 'timetable');
-  const [existingCourses, existingTimetable] = await Promise.all([
-    getDocs(coursesCollection),
-    getDocs(timetableCollection)
-  ]);
-  const isReplaceable = (item: Record<string, unknown>) =>
-    item.semesterId === data.semesterId && item.department === department;
-  const staleDocuments = [
-    ...existingCourses.docs.filter((item) => isReplaceable(item.data())),
-    ...existingTimetable.docs.filter((item) => isReplaceable(item.data()))
-  ];
-  const operationCount = staleDocuments.length + data.courses.length + data.timetable.length;
-  if (operationCount > 450) {
-    throw new Error('This semester course table is too large to replace safely in one Firestore batch.');
-  }
-
-  const batch = writeBatch(firestore);
-  staleDocuments.forEach((item) => batch.delete(item.ref));
-  data.courses.forEach((course) => batch.set(doc(coursesCollection, course.id), course));
-  data.timetable.forEach((entry) => batch.set(doc(timetableCollection, entry.id), entry));
-  await batch.commit();
-}
-
-export async function replaceSemesterTimetableData(
-  semesterId: string,
-  entries: TimetableEntry[],
-  department: string
-): Promise<void> {
-  const { collection, doc, getDocs, getFirestore, writeBatch } = await loadFirestoreModule();
-  const firestore = getFirestore(app);
-  const timetableCollection = collection(firestore, 'timetable');
-  const existingEntries = await getDocs(timetableCollection);
-  const staleEntries = existingEntries.docs.filter((item) => {
-    const data = item.data();
-    return data.semesterId === semesterId && data.department === department;
-  });
-  if (staleEntries.length + entries.length > 450) {
-    throw new Error('This semester timetable is too large to replace safely in one Firestore batch.');
-  }
-
-  const batch = writeBatch(firestore);
-  staleEntries.forEach((item) => batch.delete(item.ref));
-  entries.forEach((entry) => batch.set(doc(timetableCollection, entry.id), entry));
-  await batch.commit();
 }
 
 export function firebaseErrorMessage(error: unknown): string {

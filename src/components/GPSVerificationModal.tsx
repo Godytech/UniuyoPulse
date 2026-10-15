@@ -16,14 +16,16 @@ import {
   Sparkles
 } from 'lucide-react';
 import { AttendanceSession, User, AttendanceRecord } from '../types';
-import { calculateHaversineDistance, generateDeviceFingerprint } from '../lib/geofence';
+import { calculateHaversineDistance } from '../lib/geofence';
 import { soundManager } from '../lib/sound';
+import type { AttendanceCheckIn } from '../lib/firebase';
+import { getDeviceFingerprint } from '../lib/integrity';
 
 interface GPSVerificationModalProps {
   session: AttendanceSession;
   student: User;
   onClose: () => void;
-  onSubmitRecord: (record: AttendanceRecord) => void;
+  onSubmitRecord: (checkIn: AttendanceCheckIn) => Promise<AttendanceRecord>;
   onViewSlip?: (record: AttendanceRecord) => void;
   existingRecord?: AttendanceRecord;
 }
@@ -55,7 +57,8 @@ export const GPSVerificationModal: React.FC<GPSVerificationModalProps> = ({
     distanceMeters <= allowedRadius &&
     gpsAccuracy !== null &&
     gpsAccuracy <= 50;
-  const isVerificationCodeValid = verificationCode.trim() === session.accessCode;
+  const pinLength = session.pinLength ?? 6;
+  const isVerificationCodeValid = new RegExp(`^\\d{${pinLength}}$`).test(verificationCode.trim());
 
   const requestDeviceLocation = useCallback(() => {
     setStage('scanning');
@@ -72,7 +75,7 @@ export const GPSVerificationModal: React.FC<GPSVerificationModalProps> = ({
       (pos) => {
         const realLat = pos.coords.latitude;
         const realLng = pos.coords.longitude;
-        const realAccuracy = Math.round(pos.coords.accuracy);
+        const realAccuracy = pos.coords.accuracy;
         const computedDistance = calculateHaversineDistance(
           realLat,
           realLng,
@@ -107,7 +110,7 @@ export const GPSVerificationModal: React.FC<GPSVerificationModalProps> = ({
     if (!existingRecord) requestDeviceLocation();
   }, [existingRecord, requestDeviceLocation]);
 
-  const handleSubmitAttendance = () => {
+  const handleSubmitAttendance = async () => {
     if (
       !isWithinGeofence ||
       !isVerificationCodeValid ||
@@ -118,33 +121,24 @@ export const GPSVerificationModal: React.FC<GPSVerificationModalProps> = ({
 
     setStage('submitting');
     soundManager.playGpsLock();
-
-    const newRecord: AttendanceRecord = {
-      id: `rec_${Date.now()}`,
-      sessionId: session.id,
-      courseId: session.courseId,
-      courseCode: session.courseCode,
-      courseTitle: session.courseTitle,
-      semesterId: session.semesterId,
-      semesterName: session.semesterName,
-      studentId: student.id,
-      studentName: student.fullName,
-      studentRegNo: student.studentId || 'N/A',
-      status: 'present',
-      latitude: userCoords.lat,
-      longitude: userCoords.lng,
-      locationAccuracyMeters: gpsAccuracy,
-      distanceFromClassMeters: distanceMeters,
-      submittedAt: new Date().toISOString(),
-      deviceFingerprint: generateDeviceFingerprint(),
-      verifiedByServer: false,
-      verificationMethod: 'gps_code'
-    };
-
-    setCreatedRecord(newRecord);
-    onSubmitRecord(newRecord);
-    setStage('success');
-    soundManager.playVerificationSuccess();
+    setPermissionError(null);
+    try {
+      const newRecord = await onSubmitRecord({
+        sessionId: session.id,
+        accessCode: verificationCode.trim(),
+        latitude: userCoords.lat,
+        longitude: userCoords.lng,
+        accuracy: gpsAccuracy,
+        deviceFingerprint: getDeviceFingerprint()
+      });
+      setCreatedRecord(newRecord);
+      setStage('success');
+      soundManager.playVerificationSuccess();
+    } catch (error) {
+      setPermissionError(error instanceof Error ? error.message : 'Attendance could not be verified.');
+      setStage('ready');
+      soundManager.playErrorBuzz();
+    }
   };
 
   return (
@@ -180,7 +174,7 @@ export const GPSVerificationModal: React.FC<GPSVerificationModalProps> = ({
 
               <div>
                 <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-bold bg-emerald-100 text-emerald-800 mb-2">
-                  <CheckCircle2 className="w-3.5 h-3.5" /> Present
+                <CheckCircle2 className="w-3.5 h-3.5" /> {createdRecord?.status === 'late' ? 'Late' : 'Present'}
                 </span>
                 <h2 className="text-2xl font-black text-slate-900 tracking-tight">
                   Attendance Marked Successfully
@@ -364,7 +358,7 @@ export const GPSVerificationModal: React.FC<GPSVerificationModalProps> = ({
                 <div className="p-3.5 rounded-2xl bg-amber-50 border border-amber-200 text-amber-900 text-xs flex items-start gap-2.5">
                   <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
                   <div className="space-y-1">
-                    <p className="font-bold">Location Permission Needed</p>
+                    <p className="font-bold">Verification issue</p>
                     <p className="text-amber-700">{permissionError}</p>
                     <button
                       type="button"
@@ -417,7 +411,7 @@ export const GPSVerificationModal: React.FC<GPSVerificationModalProps> = ({
                   type="text"
                   inputMode="numeric"
                   autoComplete="one-time-code"
-                  maxLength={6}
+                  maxLength={pinLength}
                   pattern="[0-9]{6}"
                   value={verificationCode}
                   onChange={(event) => setVerificationCode(event.target.value.replace(/\D/g, '').slice(0, 6))}
@@ -428,11 +422,6 @@ export const GPSVerificationModal: React.FC<GPSVerificationModalProps> = ({
                 <p id="attendance-code-help" className="text-[11px] text-slate-500">
                 Ask the course rep for the code in person. No fingerprint reader or biometric sign-in is required.
                 </p>
-                {verificationCode.length === 6 && !isVerificationCodeValid && (
-                  <p role="alert" className="text-xs font-semibold text-rose-600">
-                    That code does not match. Confirm it with the course rep.
-                  </p>
-                )}
               </div>
 
               {/* Submit Attendance Button */}
@@ -460,7 +449,7 @@ export const GPSVerificationModal: React.FC<GPSVerificationModalProps> = ({
                 </button>
 
                 <p className="text-[11px] text-center text-slate-400 mt-2">
-                  Attendance requires an in-range GPS fix and the course rep's verification code.
+                  Attendance is validated securely against the active session.
                 </p>
               </div>
             </>

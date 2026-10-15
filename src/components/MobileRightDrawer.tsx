@@ -18,12 +18,18 @@ import {
   MapPin,
   Check,
   Sun,
-  Moon
+  Moon,
+  Activity,
+  Building2,
+  ShieldAlert,
+  BarChart3,
+  Settings2
 } from 'lucide-react';
 import { User, NavTab, AttendanceSession, ThemeMode } from '../types';
 import { soundManager } from '../lib/sound';
 import { useTimeGreeting, getTimeEmoji } from '../lib/timeGreeting';
 import { getInitials } from '../lib/avatar';
+import { can, isDevAdmin, roleLabel } from '../lib/permissions';
 
 interface MobileRightDrawerProps {
   isOpen: boolean;
@@ -52,17 +58,10 @@ export const MobileRightDrawer: React.FC<MobileRightDrawerProps> = ({
   themeMode,
   onToggleTheme
 }) => {
-  const isStaff = currentUser.role !== 'student';
-  const isCourseRep = currentUser.role === 'rep_admin' ||
-    currentUser.role === 'course_rep_admin' ||
-    currentUser.role === 'assistant_course_rep';
-  const roleLabel = currentUser.role === 'lecturer'
-    ? 'Lecturer'
-    : currentUser.role === 'assistant_course_rep'
-      ? 'Assistant Course Rep'
-      : isCourseRep
-        ? 'Course Rep Admin'
-        : 'Student';
+  const isDev = isDevAdmin(currentUser);
+  const isStaff = can(currentUser, 'semester.manage') || isDev;
+  const isCourseRep = can(currentUser, 'sessions.create');
+  const currentRoleLabel = roleLabel(currentUser);
   const activeSessionCount = activeSessions.length;
   const { greeting, period, timeString, timeZoneShort } = useTimeGreeting();
   const TimeIcon = getTimeEmoji(period);
@@ -103,7 +102,16 @@ export const MobileRightDrawer: React.FC<MobileRightDrawerProps> = ({
     { id: 'settings' as NavTab, label: 'Settings', icon: Settings },
   ];
 
-  const navItems = isStaff ? adminNavItems : studentNavItems;
+  const devNavItems = [
+    { id: 'dev_live_ops' as NavTab, label: 'Live Operations', icon: Activity, badge: activeSessionCount > 0 ? `${activeSessionCount} Live` : null },
+    { id: 'dev_explorer' as NavTab, label: 'Faculty Explorer', icon: Building2 },
+    { id: 'dev_people' as NavTab, label: 'People Directory', icon: Users },
+    { id: 'dev_activity' as NavTab, label: 'Activity & Audit', icon: ClipboardCheck },
+    { id: 'dev_anomalies' as NavTab, label: 'Integrity Alerts', icon: ShieldAlert },
+    { id: 'dev_analytics' as NavTab, label: 'Analytics & Reports', icon: BarChart3 },
+    { id: 'dev_system' as NavTab, label: 'System & Config', icon: Settings2 }
+  ];
+  const navItems = isDev ? devNavItems : isStaff ? adminNavItems : studentNavItems;
 
   const handleItemClick = (tab: NavTab) => {
     soundManager.playClick();
@@ -182,10 +190,10 @@ export const MobileRightDrawer: React.FC<MobileRightDrawerProps> = ({
                 }`}
               >
                 {isStaff ? <Shield className="w-2.5 h-2.5" /> : <GraduationCap className="w-2.5 h-2.5" />}
-                <span>{roleLabel}</span>
+                <span>{currentRoleLabel}</span>
               </span>
               <span className="block mt-1 text-[10px] font-semibold text-slate-400 truncate">
-                {currentUser.level}
+                {isDev ? 'Institution-wide access' : currentUser.level}
               </span>
             </div>
           </div>
@@ -251,7 +259,7 @@ export const MobileRightDrawer: React.FC<MobileRightDrawerProps> = ({
         {/* Mobile Drawer Bottom Actions */}
         <div className="p-4 border-t border-slate-100 bg-slate-50/70 space-y-2">
           {/* Active Broadcast Quick Action */}
-          {activeSessions.length > 0 && (currentUser.role === 'student' || isCourseRep) && onOpenCheckIn && (
+          {activeSessions.length > 0 && can(currentUser, 'sessions.checkIn') && onOpenCheckIn && (
             <button
               onClick={() => {
                 soundManager.playClick();

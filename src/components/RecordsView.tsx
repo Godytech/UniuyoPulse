@@ -17,6 +17,7 @@ import { soundManager } from '../lib/sound';
 import { formatDepartment } from '../lib/formatDepartment';
 import { formatFaculty } from '../lib/formatFaculty';
 import { printSheet } from '../lib/printSheet';
+import { can } from '../lib/permissions';
 
 interface RecordsViewProps {
   records: AttendanceRecord[];
@@ -38,7 +39,7 @@ export const RecordsView: React.FC<RecordsViewProps> = ({
   // Filter records
   const filteredRecords = records.filter((r) => {
     // If student, restrict to their own records; if rep/admin, show all
-    if (currentUser.role === 'student' && r.studentId !== currentUser.id) {
+    if (!can(currentUser, 'records.viewAll') && r.studentId !== currentUser.id) {
       return false;
     }
 

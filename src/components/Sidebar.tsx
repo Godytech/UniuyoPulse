@@ -14,10 +14,16 @@ import {
   Shield,
   Layers,
   Sparkles,
-  ChevronRight
+  ChevronRight,
+  Activity,
+  Building2,
+  ShieldAlert,
+  BarChart3,
+  Settings2
 } from 'lucide-react';
 import { User, NavTab } from '../types';
 import { soundManager } from '../lib/sound';
+import { can, isDevAdmin, roleLabel } from '../lib/permissions';
 
 interface SidebarProps {
   currentUser: User;
@@ -34,17 +40,9 @@ export const Sidebar: React.FC<SidebarProps> = ({
   onLogout,
   activeSessionCount = 0
 }) => {
-  const isStaff = currentUser.role !== 'student';
-  const isCourseRep = currentUser.role === 'rep_admin' ||
-    currentUser.role === 'course_rep_admin' ||
-    currentUser.role === 'assistant_course_rep';
-  const roleLabel = currentUser.role === 'lecturer'
-    ? 'Lecturer'
-    : currentUser.role === 'assistant_course_rep'
-      ? 'Assistant Course Rep'
-      : isCourseRep
-        ? 'Course Rep Admin'
-        : 'Student';
+  const isDev = isDevAdmin(currentUser);
+  const isStaff = can(currentUser, 'semester.manage') || isDev;
+  const currentRoleLabel = roleLabel(currentUser);
 
   // Navigation Items defined strictly per Section 4 of the user specifications
   const studentNavItems = [
@@ -68,7 +66,16 @@ export const Sidebar: React.FC<SidebarProps> = ({
     { id: 'settings' as NavTab, label: 'Settings', icon: Settings },
   ];
 
-  const navItems = isStaff ? adminNavItems : studentNavItems;
+  const devNavItems = [
+    { id: 'dev_live_ops' as NavTab, label: 'Live Operations', icon: Activity, badge: activeSessionCount > 0 ? `${activeSessionCount} Live` : null },
+    { id: 'dev_explorer' as NavTab, label: 'Faculty Explorer', icon: Building2 },
+    { id: 'dev_people' as NavTab, label: 'People Directory', icon: Users },
+    { id: 'dev_activity' as NavTab, label: 'Activity & Audit', icon: ClipboardCheck },
+    { id: 'dev_anomalies' as NavTab, label: 'Integrity Alerts', icon: ShieldAlert },
+    { id: 'dev_analytics' as NavTab, label: 'Analytics & Reports', icon: BarChart3 },
+    { id: 'dev_system' as NavTab, label: 'System & Config', icon: Settings2 }
+  ];
+  const navItems = isDev ? devNavItems : isStaff ? adminNavItems : studentNavItems;
 
   const handleSelect = (tab: NavTab) => {
     soundManager.playClick();
@@ -106,10 +113,10 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 Signed in as
               </p>
               <p className="sidebar-role-title mt-1 truncate text-sm font-extrabold leading-tight">
-                {roleLabel}
+                {currentRoleLabel}
               </p>
               <span className="sidebar-level-badge mt-2 inline-flex max-w-full items-center rounded-lg px-2 py-1 text-[10px] font-bold">
-                <span className="truncate">{currentUser.level}</span>
+                <span className="truncate">{isDev ? 'Institution-wide access' : currentUser.level}</span>
               </span>
             </div>
           </div>

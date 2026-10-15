@@ -147,39 +147,38 @@ export const ProfileView: React.FC<ProfileViewProps> = ({ currentUser, onSavePro
                 />
               </label>
               <label className="space-y-1.5 text-xs font-bold text-slate-600">
-                Registration number
+                Registration / staff ID (managed by your institution)
                 <input
                   required
                   value={draft.studentId}
-                  onChange={(event) => updateDraft('studentId', event.target.value)}
+                  readOnly
                   className="w-full rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 text-sm font-medium text-slate-900 focus:outline-none focus:ring-2 focus:ring-emerald-600/20"
                 />
               </label>
               <label className="space-y-1.5 text-xs font-bold text-slate-600">
-                Faculty
+                Faculty (managed by your invitation)
                 <input
                   required
                   value={draft.faculty}
-                  onChange={(event) => updateDraft('faculty', event.target.value)}
+                  readOnly
                   className="w-full rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 text-sm font-medium text-slate-900 focus:outline-none focus:ring-2 focus:ring-emerald-600/20"
                 />
               </label>
               <label className="space-y-1.5 text-xs font-bold text-slate-600">
-                Department
+                Department (managed by your invitation)
                 <input
                   required
                   value={draft.department}
-                  onChange={(event) => updateDraft('department', event.target.value)}
+                  readOnly
                   className="w-full rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 text-sm font-medium text-slate-900 focus:outline-none focus:ring-2 focus:ring-emerald-600/20"
                 />
               </label>
               <label className="space-y-1.5 text-xs font-bold text-slate-600">
-                Level
+                Level (managed by your invitation)
                 <input
                   required
                   value={draft.level}
-                  onChange={(event) => updateDraft('level', event.target.value)}
-                  placeholder="e.g. 200L"
+                  readOnly
                   className="w-full rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 text-sm font-medium text-slate-900 focus:outline-none focus:ring-2 focus:ring-emerald-600/20"
                 />
               </label>

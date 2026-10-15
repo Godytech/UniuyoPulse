@@ -7,6 +7,16 @@ export function buildCsv(headers: string[], rows: Array<Array<string | number | 
   return `\uFEFF${csvRows.join('\n')}\n`;
 }
 
+export function getDeviceFingerprint(): string {
+  // This is a browser-scoped pseudonymous token, not a cryptographic hardware ID.
+  const key = 'uniuyo_pulse_device_token';
+  const existing = window.localStorage.getItem(key);
+  if (existing) return existing;
+  const fingerprint = crypto.randomUUID();
+  window.localStorage.setItem(key, fingerprint);
+  return fingerprint;
+}
+
 async function sha256(value: string): Promise<string> {
   const data = new TextEncoder().encode(value);
   const digest = await crypto.subtle.digest('SHA-256', data);

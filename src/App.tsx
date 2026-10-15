@@ -15,20 +15,25 @@ import { AuthPage } from './components/AuthPage';
 import { soundManager } from './lib/sound';
 import { Check } from 'lucide-react';
 import { onAuthStateChanged } from 'firebase/auth';
+import { firebaseAuth, signOutFirebaseAccount } from './lib/firebase';
 import {
-  firebaseAuth,
   firebaseErrorMessage,
+  closeAttendanceSession,
+  createAttendanceSession,
   assignStudentCourseRepRole,
+  getAttendanceRecords,
   getFirebaseUserProfile,
+  getSessionAccessCodes,
   readFirestoreCollection,
-  replaceFirestoreCollection,
-  replaceSemesterDepartmentData,
-  replaceSemesterTimetableData,
+  saveSemesterAcademicData,
+  submitAttendanceCheckIn,
   subscribeFirestoreCollection,
-  signOutFirebaseAccount,
-  syncStudentDirectoryProfile,
-  updateFirebaseUserProfile
-} from './lib/firebase';
+  updateFirebaseUserProfile,
+  getDevAdminSnapshot,
+  logActivity
+} from './lib/store';
+import type { AttendanceCheckIn, DevAdminSnapshot, NewAttendanceSession } from './lib/store';
+import { can, isDevAdmin, isLecturer, isStudent } from './lib/permissions';
 const Sidebar = lazy(() => import('./components/Sidebar').then(({ Sidebar }) => ({ default: Sidebar })));
 const TopHeader = lazy(() => import('./components/TopHeader').then(({ TopHeader }) => ({ default: TopHeader })));
 const StudentDashboard = lazy(() => import('./components/StudentDashboard').then(({ StudentDashboard }) => ({ default: StudentDashboard })));
@@ -47,13 +52,14 @@ const TimetableManagementView = lazy(() => import('./components/TimetableManagem
 const ProfileView = lazy(() => import('./components/ProfileView').then(({ ProfileView }) => ({ default: ProfileView })));
 const SettingsView = lazy(() => import('./components/SettingsView').then(({ SettingsView }) => ({ default: SettingsView })));
 const MobileRightDrawer = lazy(() => import('./components/MobileRightDrawer').then(({ MobileRightDrawer }) => ({ default: MobileRightDrawer })));
+const DevAdminConsole = lazy(() => import('./components/DevAdminConsole').then(({ DevAdminConsole }) => ({ default: DevAdminConsole })));
 
 function normalizeAcademicValue(value: string): string {
   return value.trim().toLowerCase().replace(/\s+/g, ' ');
 }
 
 function getStudentTermName(user: User): string | null {
-  if (user.role !== 'student' || !user.semester || !user.academicSession) return null;
+  if (!isStudent(user) || !user.semester || !user.academicSession) return null;
   return `${user.semester} ${user.academicSession}`;
 }
 
@@ -64,18 +70,17 @@ function sessionMatchesStudentTerm(session: AttendanceSession, user: User): bool
 }
 
 function canManageSemesterData(role: User['role']): boolean {
-  return role === 'lecturer' ||
-    role === 'course_rep_admin' ||
-    role === 'assistant_course_rep' ||
-    role === 'rep_admin';
+  return can(role, 'semester.manage');
 }
 
 function canCheckInToSession(role: User['role']): boolean {
-  return role === 'student' ||
-    role === 'course_rep_admin' ||
-    role === 'assistant_course_rep' ||
-    role === 'rep_admin';
+  return can(role, 'sessions.checkIn');
 }
+
+const EMPTY_DEV_SNAPSHOT: DevAdminSnapshot = {
+  faculties: [], courses: [], timetable: [], sessions: [], records: [],
+  notifications: [], students: [], userProfiles: [], auditLog: [], integrityAlerts: [], appConfig: []
+};
 
 export default function App() {
   // Always require authentication when the application is loaded.
@@ -98,6 +103,10 @@ export default function App() {
   const [notifications, setNotifications] = useState<AttendanceNotification[]>([]);
   const [students, setStudents] = useState<StudentDetail[]>([]);
   const [firebaseDataReadyForUid, setFirebaseDataReadyForUid] = useState<string | null>(null);
+  const [devSnapshot, setDevSnapshot] = useState<DevAdminSnapshot>(EMPTY_DEV_SNAPSHOT);
+  const [devSnapshotLoading, setDevSnapshotLoading] = useState(false);
+  const [devSnapshotError, setDevSnapshotError] = useState<string | null>(null);
+  const [devLastUpdated, setDevLastUpdated] = useState<Date | null>(null);
 
   // Modals & Action Sheets
   const [checkInSession, setCheckInSession] = useState<AttendanceSession | null>(null);
@@ -135,20 +144,22 @@ export default function App() {
       courses: coursesToSave.map((course) => ({ ...course, department })),
       timetable: timetableToSave.map((entry) => ({ ...entry, department }))
     };
-    await replaceSemesterDepartmentData(scopedData, department);
+    const savedData = await saveSemesterAcademicData(scopedData);
+    const savedCourses = savedData.courses ?? scopedData.courses;
+    const savedTimetable = savedData.timetable ?? scopedData.timetable;
     setCourses((previous) => [
       ...previous.filter((course) =>
         course.semesterId !== scopedData.semesterId ||
         normalizeAcademicValue(course.department) !== departmentKey
       ),
-      ...scopedData.courses
+      ...savedCourses
     ]);
     setTimetable((previous) => [
       ...previous.filter((entry) =>
         entry.semesterId !== scopedData.semesterId ||
         normalizeAcademicValue(entry.department ?? '') !== departmentKey
       ),
-      ...scopedData.timetable
+      ...savedTimetable
     ]);
   };
 
@@ -164,15 +175,21 @@ export default function App() {
     if (entries.some((entry) => normalizeAcademicValue(entry.department ?? '') !== departmentKey)) {
       throw new Error('You can manage timetables only for your own department.');
     }
-    const department = currentUser.department.trim();
-    const scopedEntries = entries.map((entry) => ({ ...entry, department }));
-    await replaceSemesterTimetableData(semesterId, scopedEntries, department);
+    const scopedEntries = entries.map((entry) => ({
+      ...entry,
+      department: currentUser.department.trim()
+    }));
+    const savedData = await saveSemesterAcademicData({
+      semesterId,
+      semesterName: _semesterName,
+      timetable: scopedEntries
+    });
     setTimetable((previous) => [
       ...previous.filter((entry) =>
         entry.semesterId !== semesterId ||
         normalizeAcademicValue(entry.department ?? '') !== departmentKey
       ),
-      ...scopedEntries
+      ...(savedData.timetable ?? scopedEntries)
     ]);
   };
 
@@ -195,11 +212,10 @@ export default function App() {
           if (firebaseAuth.currentUser?.uid !== authUser.uid || !firebaseAuth.currentUser.emailVerified) {
             return;
           }
-          return syncStudentDirectoryProfile(authUser.uid, user).then(() => {
-            if (firebaseAuth.currentUser?.uid === authUser.uid) {
-              setCurrentUser(user);
-            }
-          });
+          if (firebaseAuth.currentUser?.uid === authUser.uid) {
+            setCurrentUser(user);
+            setActiveTab(isDevAdmin(user) ? 'dev_live_ops' : 'dashboard');
+          }
         })
         .catch((error: unknown) => showToast(`Could not restore Firebase account: ${firebaseErrorMessage(error)}`));
     });
@@ -210,6 +226,18 @@ export default function App() {
     const authUser = firebaseAuth.currentUser;
     if (!currentUser || !authUser) {
       setFirebaseDataReadyForUid(null);
+      setCourses([]);
+      setSessions([]);
+      setRecords([]);
+      setTimetable([]);
+      setNotifications([]);
+      setStudents([]);
+      setCheckInSession(null);
+      setViewSlipRecord(null);
+      return;
+    }
+    if (isDevAdmin(currentUser)) {
+      setFirebaseDataReadyForUid(authUser.uid);
       return;
     }
 
@@ -234,7 +262,8 @@ export default function App() {
           coursesLoaded = true;
           markReadyIfLoaded();
         },
-        (error) => showToast(`Could not load courses from Firestore: ${firebaseErrorMessage(error)}`)
+        (error) => showToast(`Could not load courses from Firestore: ${firebaseErrorMessage(error)}`),
+        { field: 'department', value: currentUser.department }
       ),
       subscribeFirestoreCollection<TimetableEntry>(
         'timetable',
@@ -244,14 +273,30 @@ export default function App() {
           timetableLoaded = true;
           markReadyIfLoaded();
         },
-        (error) => showToast(`Could not load timetable from Firestore: ${firebaseErrorMessage(error)}`)
+        (error) => showToast(`Could not load timetable from Firestore: ${firebaseErrorMessage(error)}`),
+        { field: 'department', value: currentUser.department }
       ),
-      readFirestoreCollection<AttendanceSession>('sessions'),
-      readFirestoreCollection<AttendanceRecord>('records'),
-      readFirestoreCollection<AttendanceNotification>('notifications'),
-      readFirestoreCollection<StudentDetail>('students')
+      readFirestoreCollection<AttendanceSession>('sessions', {
+        field: 'department',
+        value: currentUser.department
+      }),
+      getAttendanceRecords(
+        currentUser.department,
+        currentUser.id,
+        canManageSemesterData(currentUser.role)
+      ),
+      readFirestoreCollection<AttendanceNotification>('notifications', {
+        field: 'department',
+        value: currentUser.department
+      }),
+      canManageSemesterData(currentUser.role)
+        ? readFirestoreCollection<StudentDetail>('students', {
+          field: 'department',
+          value: currentUser.department
+        })
+        : Promise.resolve([])
     ])
-      .then(([stopCourses, stopTimetable, cloudSessions, cloudRecords, cloudNotifications, cloudStudents]) => {
+      .then(async ([stopCourses, stopTimetable, cloudSessions, cloudRecords, cloudNotifications, cloudStudents]) => {
         unsubscribeCourses = stopCourses;
         unsubscribeTimetable = stopTimetable;
         if (!isActive) {
@@ -259,9 +304,19 @@ export default function App() {
           stopTimetable();
           return;
         }
-        setSessions(cloudSessions);
+        if (canManageSemesterData(currentUser.role)) {
+          const accessCodes = await getSessionAccessCodes();
+          setSessions(cloudSessions.map((session) => ({
+            ...session,
+            accessCode: accessCodes[session.id]
+          })));
+        } else {
+          setSessions(cloudSessions);
+        }
         setRecords(cloudRecords);
-        setNotifications(cloudNotifications);
+        setNotifications(cloudNotifications.filter((notification) =>
+          !notification.targetUserId || notification.targetUserId === currentUser.id
+        ));
         setStudents(cloudStudents);
         otherDataLoaded = true;
         markReadyIfLoaded();
@@ -278,13 +333,66 @@ export default function App() {
     };
   }, [currentUser?.id]);
 
-  const saveCollectionToCloud = <T extends { id: string }>(collectionName: string, items: T[]) => {
-    const uid = firebaseAuth.currentUser?.uid;
-    if (!uid || uid !== firebaseDataReadyForUid) return;
-    replaceFirestoreCollection(collectionName, items).catch((error: unknown) => {
-      showToast(`Could not save ${collectionName} to Firestore: ${firebaseErrorMessage(error)}`);
-    });
-  };
+  useEffect(() => {
+    if (!currentUser || !isDevAdmin(currentUser)) {
+      setDevSnapshot(EMPTY_DEV_SNAPSHOT);
+      setDevLastUpdated(null);
+      setDevSnapshotError(null);
+      return;
+    }
+    let isActive = true;
+    let isLoading = false;
+    const refresh = async () => {
+      if (isLoading) return;
+      isLoading = true;
+      setDevSnapshotLoading(true);
+      try {
+        const next = await getDevAdminSnapshot();
+        if (!isActive) return;
+        setDevSnapshot(next);
+        setCourses(next.courses);
+        setSessions(next.sessions);
+        setRecords(next.records);
+        setTimetable(next.timetable);
+        setNotifications(next.notifications.filter((notification) =>
+          !notification.targetUserId || notification.targetUserId === currentUser.id
+        ));
+        setStudents(next.students);
+        setDevLastUpdated(new Date());
+        setDevSnapshotError(null);
+      } catch (error) {
+        if (isActive) {
+          setDevSnapshotError(firebaseErrorMessage(error));
+          if (
+            typeof error === 'object' &&
+            error !== null &&
+            'code' in error &&
+            error.code === 'functions/permission-denied'
+          ) {
+            setDevSnapshot(EMPTY_DEV_SNAPSHOT);
+            setCurrentUser(null);
+            void signOutFirebaseAccount().catch((signOutError: unknown) =>
+              showToast(`Could not end the deactivated session: ${firebaseErrorMessage(signOutError)}`)
+            );
+          }
+        }
+      } finally {
+        isLoading = false;
+        if (isActive) setDevSnapshotLoading(false);
+      }
+    };
+    void refresh();
+    const interval = window.setInterval(() => void refresh(), 5000);
+    // Firestore is the cross-device source of truth. Storage events only prompt
+    // an early refresh in this browser; production cross-device updates use Firebase.
+    const onStorage = () => void refresh();
+    window.addEventListener('storage', onStorage);
+    return () => {
+      isActive = false;
+      window.clearInterval(interval);
+      window.removeEventListener('storage', onStorage);
+    };
+  }, [currentUser?.id]);
 
   useEffect(() => {
     if (typeof window !== 'undefined') {
@@ -303,14 +411,21 @@ export default function App() {
     }
   }, [currentUser, activeTab]);
 
-  useEffect(() => saveCollectionToCloud('sessions', sessions), [sessions, firebaseDataReadyForUid]);
-  useEffect(() => saveCollectionToCloud('records', records), [records, firebaseDataReadyForUid]);
-  useEffect(() => saveCollectionToCloud('notifications', notifications), [notifications, firebaseDataReadyForUid]);
-  useEffect(() => saveCollectionToCloud('students', students), [students, firebaseDataReadyForUid]);
-
   // Sign out handler: clears the session and returns to the public home page.
   const handleLogout = async () => {
     soundManager.playClick();
+    if (currentUser) {
+      try {
+        await logActivity({
+          action: 'auth.sign_out',
+          targetType: 'account',
+          targetId: currentUser.id,
+          details: 'User signed out.'
+        });
+      } catch (error) {
+        showToast(`Sign-out audit entry failed: ${firebaseErrorMessage(error)}`);
+      }
+    }
     if (firebaseAuth.currentUser) {
       try {
         await signOutFirebaseAccount();
@@ -327,55 +442,81 @@ export default function App() {
   };
 
   const handleSaveProfile = async (user: User) => {
-    await updateFirebaseUserProfile(user);
-    setCurrentUser(user);
+    const updatedUser = await updateFirebaseUserProfile(user);
+    setCurrentUser(updatedUser);
     setStudents((previous) => previous.map((student) =>
-      student.id === user.id
+      student.id === updatedUser.id
         ? {
           ...student,
-          fullName: user.fullName,
-          studentId: user.studentId ?? '',
-          department: user.department,
-          faculty: user.faculty,
-          level: user.level,
-          semester: user.semester,
-          academicSession: user.academicSession
+          fullName: updatedUser.fullName,
+          studentId: updatedUser.studentId ?? '',
+          department: updatedUser.department,
+          faculty: updatedUser.faculty,
+          level: updatedUser.level,
+          semester: updatedUser.semester,
+          academicSession: updatedUser.academicSession
         }
         : student
     ));
+    try {
+      await logActivity({
+        action: 'profile.updated',
+        targetType: 'account',
+        targetId: updatedUser.id,
+        details: 'User updated profile details.'
+      });
+    } catch (error) {
+      showToast(`Profile saved, but audit entry failed: ${firebaseErrorMessage(error)}`);
+    }
     showToast('Your profile has been updated.');
   };
 
   // Successful sign in handler: restores user and navigates to portal dashboard
   const handleLoginSuccess = (user: User) => {
     setCurrentUser(user);
-    setActiveTab('dashboard');
+    setActiveTab(isDevAdmin(user) ? 'dev_live_ops' : 'dashboard');
+    void logActivity({
+      action: 'auth.sign_in',
+      targetType: 'account',
+      targetId: user.id,
+      details: 'User signed in.'
+    }).catch((error: unknown) => showToast(`Sign-in audit entry failed: ${firebaseErrorMessage(error)}`));
     window.scrollTo(0, 0);
     showToast(`Welcome back, ${user.fullName.split(' ')[0]}!`);
   };
 
   // Submit attendance from GPS verification modal
-  const handleSubmitRecord = (newRecord: AttendanceRecord) => {
+  const handleSubmitRecord = async (checkIn: AttendanceCheckIn): Promise<AttendanceRecord> => {
     if (!currentUser || !canCheckInToSession(currentUser.role)) {
-      showToast('Only students and course representatives can submit attendance check-ins.');
-      return;
+      throw new Error('Only students and course representatives can submit attendance check-ins.');
     }
-    if (newRecord.studentId !== currentUser.id) {
-      showToast('Attendance can only be submitted for the signed-in account.');
-      return;
-    }
-    if (currentUser.role === 'student') {
-      const session = sessions.find((item) => item.id === newRecord.sessionId);
+    if (isStudent(currentUser)) {
+      const session = sessions.find((item) => item.id === checkIn.sessionId);
       if (!getStudentTermName(currentUser)) {
-        showToast('Set your semester and academic session in your profile before checking in.');
-        return;
+        throw new Error('Set your semester and academic session in your profile before checking in.');
       }
       if (!session || !sessionMatchesStudentTerm(session, currentUser)) {
-        showToast('This attendance session does not match your profile semester and academic session.');
-        return;
+        throw new Error('This attendance session does not match your profile semester and academic session.');
       }
     }
 
+    let newRecord: AttendanceRecord;
+    try {
+      newRecord = await submitAttendanceCheckIn(checkIn);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Check-in was rejected.';
+      try {
+        await logActivity({
+          action: 'attendance.check_in_rejected',
+          targetType: 'session',
+          targetId: checkIn.sessionId,
+          details: message
+        });
+      } catch (auditError) {
+        showToast(`Check-in rejected; audit entry failed: ${firebaseErrorMessage(auditError)}`);
+      }
+      throw error;
+    }
     setRecords((prev) => {
       const exists = prev.some(
         (r) => r.sessionId === newRecord.sessionId && r.studentId === newRecord.studentId
@@ -389,7 +530,7 @@ export default function App() {
       id: `notif_${Date.now()}`,
       type: 'attendance_confirmed',
       title: 'Attendance Verified',
-      body: `Your GPS location was verified for ${newRecord.courseCode} at ${newRecord.distanceFromClassMeters}m from classroom center. Status: Present.`,
+      body: `Your GPS location was verified for ${newRecord.courseCode} at ${newRecord.distanceFromClassMeters}m from classroom center. Status: ${newRecord.status}.`,
       timestamp: 'Just now',
       read: false,
       courseCode: newRecord.courseCode,
@@ -397,45 +538,49 @@ export default function App() {
     };
     setNotifications((prev) => [newNotif, ...prev]);
     showToast('Attendance recorded and verified successfully!');
+    return newRecord;
   };
 
   // Create new session from Course Rep / Admin
-  const handleCreateSession = (newSession: AttendanceSession) => {
-    setSessions((prev) => [newSession, ...prev]);
-    if (currentUser.role !== 'lecturer') {
-      setCheckInSession(newSession);
+  const handleCreateSession = async (newSession: NewAttendanceSession) => {
+    if (!currentUser || !can(currentUser, 'semester.manage')) {
+      throw new Error('This account cannot open an attendance session.');
     }
-
-    // Dispatch notification
-    const newNotif: AttendanceNotification = {
-      id: `notif_${Date.now()}`,
-      type: 'session_opened',
-      title: 'New Attendance Broadcast',
-      body: `${currentUser.fullName} opened live GPS attendance for ${newSession.courseCode} at ${newSession.locationName}. Radius: ${newSession.radiusMeters}m.`,
-      timestamp: 'Just now',
-      read: false,
-      courseCode: newSession.courseCode,
-      sessionId: newSession.id
-    };
-    setNotifications((prev) => [newNotif, ...prev]);
+    if (!currentUser) throw new Error('Sign in before opening an attendance session.');
+    const createdSession = await createAttendanceSession(newSession);
+    setSessions((prev) => [createdSession, ...prev]);
+    if (!isLecturer(currentUser)) {
+      setCheckInSession(createdSession);
+    }
     showToast(
-      `Session opened for ${newSession.courseCode}. Verification code: ${newSession.accessCode}. Share it in person and keep this device at the detected location.`
+      `Session opened for ${createdSession.courseCode}. Verification code: ${createdSession.accessCode}. Share it in person and keep this device at the detected location.`
     );
   };
 
   // Close session
-  const handleEndSession = (sessionId: string) => {
-    setSessions((prev) =>
-      prev.map((s) => (s.id === sessionId ? { ...s, status: 'closed' as const } : s))
-    );
-    showToast('Attendance session has been closed');
+  const handleEndSession = async (sessionId: string) => {
+    if (!currentUser || !can(currentUser, 'sessions.forceClose') && !can(currentUser, 'semester.manage')) {
+      showToast('You are not authorized to close attendance sessions.');
+      return;
+    }
+    try {
+      await closeAttendanceSession(sessionId);
+      setSessions((prev) =>
+        prev.map((s) => (s.id === sessionId
+          ? { ...s, status: 'closed' as const, accessCode: undefined }
+          : s))
+      );
+      showToast('Attendance session has been closed');
+    } catch (error) {
+      showToast(`Could not close attendance session: ${firebaseErrorMessage(error)}`);
+    }
   };
 
   const handleAssignStudentRole = async (
     student: StudentDetail,
     role: CourseRepRole | 'student'
   ) => {
-    if (currentUser.role !== 'lecturer') {
+    if (!can(currentUser, 'students.assignRoles')) {
       showToast('Only lecturers can assign course representative roles.');
       return;
     }
@@ -471,13 +616,13 @@ export default function App() {
         if (
           canCheckInToSession(currentUser.role) &&
           s.status === 'active' &&
-          (currentUser.role !== 'student' || sessionMatchesStudentTerm(s, currentUser))
+          (!isStudent(currentUser) || sessionMatchesStudentTerm(s, currentUser))
         ) {
           setCheckInSession(s);
-        } else if (currentUser.role === 'student' && !getStudentTermName(currentUser)) {
+        } else if (isStudent(currentUser) && !getStudentTermName(currentUser)) {
           showToast('Set your semester and academic session in your profile before checking in.');
           setActiveTab('profile');
-        } else if (currentUser.role === 'student') {
+        } else if (isStudent(currentUser)) {
           showToast('This attendance session does not match your profile semester and academic session.');
         } else {
           setActiveTab('sessions');
@@ -517,16 +662,28 @@ export default function App() {
     );
   }
 
+  if (activeTab.startsWith('dev_') && !can(currentUser, 'dev.access')) {
+    return (
+      <main className="min-h-screen bg-slate-50 p-6">
+        <section role="alert" className="mx-auto mt-16 max-w-lg rounded-2xl border border-rose-200 bg-white p-6 text-center shadow-sm">
+          <h1 className="text-xl font-black text-slate-900">Access denied</h1>
+          <p className="mt-2 text-sm text-slate-600">The management console is restricted to verified dev administrators.</p>
+          <button onClick={() => setActiveTab('dashboard')} className="mt-4 rounded-xl bg-indigo-600 px-4 py-2 text-sm font-bold text-white">Return to dashboard</button>
+        </section>
+      </main>
+    );
+  }
+
   const activeSessions = sessions.filter((s) => s.status === 'active');
   const departmentCourses = courses.filter(
     (course) => normalizeAcademicValue(course.department) === normalizeAcademicValue(currentUser.department)
   );
-  const visibleCourses = currentUser.role === 'lecturer'
+  const visibleCourses = isLecturer(currentUser)
     ? departmentCourses
     : departmentCourses.filter(
       (course) =>
         normalizeAcademicValue(course.level) === normalizeAcademicValue(currentUser.level) &&
-        (currentUser.role !== 'student' ||
+        (!isStudent(currentUser) ||
           (Boolean(getStudentTermName(currentUser)) &&
             normalizeAcademicValue(course.semesterName ?? '') ===
               normalizeAcademicValue(getStudentTermName(currentUser) ?? '')))
@@ -535,18 +692,26 @@ export default function App() {
     if (normalizeAcademicValue(entry.department ?? '') !== normalizeAcademicValue(currentUser.department)) {
       return false;
     }
-    return currentUser.role === 'lecturer' ||
+    return isLecturer(currentUser) ||
       normalizeAcademicValue(entry.level ?? '') === normalizeAcademicValue(currentUser.level);
   });
   const visibleCourseIds = new Set(visibleCourses.map((course) => course.id));
-  const visibleActiveSessions = activeSessions.filter((session) =>
-    visibleCourseIds.has(session.courseId) &&
-    (currentUser.role !== 'student' || sessionMatchesStudentTerm(session, currentUser))
-  );
-  const visibleSessions = sessions.filter((session) =>
-    visibleCourseIds.has(session.courseId) &&
-    (currentUser.role !== 'student' || sessionMatchesStudentTerm(session, currentUser))
-  );
+  const visibleActiveSessions = isDevAdmin(currentUser)
+    ? sessions.filter((session) =>
+      session.status !== 'closed' &&
+      Date.parse(session.startTime) <= Date.now() &&
+      Date.parse(session.endTime) >= Date.now()
+    )
+    : activeSessions.filter((session) =>
+      visibleCourseIds.has(session.courseId) &&
+      (!isStudent(currentUser) || sessionMatchesStudentTerm(session, currentUser))
+    );
+  const visibleSessions = isDevAdmin(currentUser)
+    ? sessions
+    : sessions.filter((session) =>
+      visibleCourseIds.has(session.courseId) &&
+      (!isStudent(currentUser) || sessionMatchesStudentTerm(session, currentUser))
+    );
   const unreadCount = notifications.filter((n) => !n.read).length;
   return (
     <div
@@ -588,11 +753,39 @@ export default function App() {
         </Suspense>
 
         {/* Viewport Content */}
+        {isDevAdmin(currentUser) ? (
+          <main className="flex-1 p-3 sm:p-5 lg:p-7 max-w-[1500px] w-full mx-auto pb-16">
+            <Suspense fallback={<div role="status" className="p-8">Loading management console…</div>}>
+              <DevAdminConsole
+                currentUser={currentUser}
+                activeTab={activeTab}
+                data={devSnapshot}
+                lastUpdated={devLastUpdated}
+                loading={devSnapshotLoading}
+                error={devSnapshotError}
+                onRefresh={() => {
+                  void getDevAdminSnapshot().then((snapshot) => {
+                    setDevSnapshot(snapshot);
+                    setDevLastUpdated(new Date());
+                    setDevSnapshotError(null);
+                  }).catch((error: unknown) => setDevSnapshotError(firebaseErrorMessage(error)));
+                }}
+                onActionComplete={() => {
+                  void getDevAdminSnapshot().then((snapshot) => {
+                    setDevSnapshot(snapshot);
+                    setDevLastUpdated(new Date());
+                    setDevSnapshotError(null);
+                  }).catch((error: unknown) => setDevSnapshotError(firebaseErrorMessage(error)));
+                }}
+              />
+            </Suspense>
+          </main>
+        ) : (
         <main className="flex-1 p-4 sm:p-6 lg:p-8 max-w-7xl w-full mx-auto pb-16">
           <Suspense fallback={<div className="min-h-[60vh]" role="status">Loading view…</div>}>
           {/* DASHBOARD VIEW */}
           {(activeTab === 'dashboard' || activeTab === 'home') && (
-            currentUser.role === 'student' ? (
+            isStudent(currentUser) ? (
               <StudentDashboard
                 currentUser={currentUser}
                 courses={visibleCourses}
@@ -652,7 +845,7 @@ export default function App() {
           {activeTab === 'students' && (
             <StudentsView
               students={students}
-              canAssignRoles={currentUser.role === 'lecturer'}
+              canAssignRoles={can(currentUser, 'students.assignRoles')}
               onAssignRole={handleAssignStudentRole}
             />
           )}
@@ -670,13 +863,13 @@ export default function App() {
                 if (
                   canCheckInToSession(currentUser.role) &&
                   session.status === 'active' &&
-                  (currentUser.role !== 'student' || sessionMatchesStudentTerm(session, currentUser))
+                  (!isStudent(currentUser) || sessionMatchesStudentTerm(session, currentUser))
                 ) {
                   setCheckInSession(session);
-                } else if (currentUser.role === 'student' && !getStudentTermName(currentUser)) {
+                } else if (isStudent(currentUser) && !getStudentTermName(currentUser)) {
                   showToast('Set your semester and academic session in your profile before checking in.');
                   setActiveTab('profile');
-                } else if (currentUser.role === 'student') {
+                } else if (isStudent(currentUser)) {
                   showToast('This attendance session does not match your profile semester and academic session.');
                 } else {
                   setActiveTab('records');
@@ -697,7 +890,7 @@ export default function App() {
           )}
 
           {/* SEMESTER REPORTS & ELIGIBILITY */}
-          {activeTab === 'reports' && currentUser.role !== 'student' && (
+          {activeTab === 'reports' && can(currentUser, 'reports.view') && (
             <ReportsView
               courses={visibleCourses}
               students={students}
@@ -740,12 +933,14 @@ export default function App() {
           {activeTab === 'settings' && (
             <Suspense fallback={<div role="status">Loading settings…</div>}>
             <SettingsView
+              currentUser={currentUser}
               onLogout={handleLogout}
             />
             </Suspense>
           )}
           </Suspense>
         </main>
+        )}
       </div>
 
       {/* GPS ATTENDANCE CHECK-IN MODAL (The Hero Trust Signal) */}
@@ -772,7 +967,6 @@ export default function App() {
         {isCreateSessionOpen && (
           <CreateSessionModal
             courses={visibleCourses}
-            currentUser={currentUser}
             onClose={() => setIsCreateSessionOpen(false)}
             onCreateSession={handleCreateSession}
           />

@@ -1,6 +1,6 @@
 export type CourseRepRole = 'course_rep_admin' | 'assistant_course_rep';
 
-export type UserRole = 'student' | CourseRepRole | 'rep_admin' | 'lecturer';
+export type UserRole = 'student' | CourseRepRole | 'rep_admin' | 'lecturer' | 'dev_admin';
 
 export type ViewMode = 'admin' | 'student';
 
@@ -16,6 +16,7 @@ export interface User {
   avatar?: string;
   semester?: 'First Semester' | 'Second Semester';
   academicSession?: string;
+  active?: boolean;
 }
 
 export interface AuthUser extends User {
@@ -29,6 +30,7 @@ export interface Course {
   code: string;
   title: string;
   department: string;
+  faculty?: string;
   level: string;
   repId: string;
   repName: string;
@@ -55,11 +57,17 @@ export interface AttendanceSession {
   endTime: string; // ISO string
   lateThresholdMinutes?: number;
   status: AttendanceSessionStatus;
-  accessCode: string; // Six-digit in-person attendance verification code
+  accessCode?: string;
+  pinLength?: number;
   maxStudents?: number;
   totalAttendees?: number;
   lecturerName?: string;
   lecturerId?: string;
+  department?: string;
+  faculty?: string;
+  courseLevel?: string;
+  forceClosedBy?: string;
+  forceCloseReason?: string;
   createdAt?: string;
 }
 
@@ -85,6 +93,12 @@ export interface AttendanceRecord {
   verificationMethod?: 'gps' | 'gps_code' | 'session_host';
   semesterId?: string;
   semesterName?: string;
+  department?: string;
+  faculty?: string;
+  integrityFlag?: string;
+  voidedAt?: string;
+  voidReason?: string;
+  annotation?: string;
 }
 
 export interface GeofenceVerification {
@@ -125,6 +139,26 @@ export interface AttendanceNotification {
   read: boolean;
   courseCode?: string;
   sessionId?: string;
+  targetUserId?: string;
+  faculty?: string;
+}
+
+export interface Faculty {
+  id: string;
+  name: string;
+  departments: string[];
+}
+
+export interface AuditLogEntry {
+  id: string;
+  timestamp: string;
+  actorId: string;
+  actorName: string;
+  actorRole: UserRole;
+  action: string;
+  targetType: string;
+  targetId: string;
+  details: string;
 }
 
 export type NavTab =
@@ -140,7 +174,14 @@ export type NavTab =
   | 'home'
   | 'notifications'
   | 'history'
-  | 'admin_dashboard';
+  | 'admin_dashboard'
+  | 'dev_live_ops'
+  | 'dev_explorer'
+  | 'dev_people'
+  | 'dev_activity'
+  | 'dev_anomalies'
+  | 'dev_analytics'
+  | 'dev_system';
 
 export type XNavTab = NavTab;
 

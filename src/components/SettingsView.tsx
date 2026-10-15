@@ -9,12 +9,16 @@ import {
   LogOut
 } from 'lucide-react';
 import { soundManager } from '../lib/sound';
+import { can } from '../lib/permissions';
+import type { User } from '../types';
 
 interface SettingsViewProps {
+  currentUser: User;
   onLogout?: () => void;
 }
 
 export const SettingsView: React.FC<SettingsViewProps> = ({
+  currentUser,
   onLogout
 }) => {
   const [soundEnabled, setSoundEnabled] = useState(soundManager.isEnabled());
@@ -40,7 +44,9 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
             Settings
           </h2>
           <p className="text-sm text-slate-500 mt-1">
-            Manage sound and device security preferences.
+            {can(currentUser, 'accounts.manage')
+              ? 'Manage your console preferences. Institution-wide controls are in System & Config.'
+              : 'Manage sound and device security preferences.'}
           </p>
         </div>
       </div>

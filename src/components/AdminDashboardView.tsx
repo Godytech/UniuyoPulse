@@ -255,7 +255,7 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
                         </span>
                       </div>
                       <span className="text-xs font-mono font-bold text-slate-400">
-                        PIN: {session.accessCode}
+                        {session.accessCode && <>PIN: {session.accessCode}</>}
                       </span>
                     </div>
 

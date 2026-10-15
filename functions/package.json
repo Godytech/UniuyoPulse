@@ -1,0 +1,17 @@
+{
+  "name": "uniuyo-pulse-functions",
+  "private": true,
+  "main": "index.js",
+  "type": "module",
+  "engines": {
+    "node": "20"
+  },
+  "scripts": {
+    "lint": "node --check index.js && node --check scripts/seed-dev-demo.js && node --check scripts/set-dev-admin-passkey.js",
+    "deploy": "firebase deploy --only functions"
+  },
+  "dependencies": {
+    "firebase-admin": "^13.0.2",
+    "firebase-functions": "^6.4.0"
+  }
+}

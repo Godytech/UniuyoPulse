@@ -2,7 +2,6 @@ import React, { useEffect, useRef, useState } from 'react';
 import {
   Lock,
   User as UserIcon,
-  GraduationCap,
   Eye,
   EyeOff,
   AlertCircle,
@@ -10,7 +9,6 @@ import {
   KeyRound,
   IdCard,
   CheckCircle2,
-  BriefcaseBusiness,
   Mail,
   RefreshCw,
   LogOut,
@@ -21,17 +19,16 @@ import {
   Moon,
   Sun
 } from 'lucide-react';
-import { ThemeMode, User, UserRole, AuthUser } from '../types';
+import { ThemeMode, User } from '../types';
 import {
   createFirebaseAccount,
+  createDevAdminAccount,
   EmailVerificationRequiredError,
   firebaseErrorMessage,
   refreshVerifiedFirebaseUser,
   resendFirebaseEmailVerification,
   signInFirebaseAccount,
-  signOutFirebaseAccount,
-  validateLecturerPasskey,
-  validateStudentPasskey
+  signOutFirebaseAccount
 } from '../lib/firebase';
 import { soundManager } from '../lib/sound';
 import { useTimeGreeting, getTimeEmoji } from '../lib/timeGreeting';
@@ -49,7 +46,7 @@ export const AuthPage: React.FC<AuthPageProps> = ({
   themeMode,
   onToggleTheme
 }) => {
-  const [mode, setMode] = useState<'landing' | 'signin' | 'signup' | 'verify'>(() =>
+  const [mode, setMode] = useState<'landing' | 'signin' | 'dev_signin' | 'signup' | 'verify'>(() =>
     pendingVerificationEmail ? 'verify' : 'landing'
   );
   const [verificationEmail, setVerificationEmail] = useState(pendingVerificationEmail ?? '');
@@ -64,17 +61,16 @@ export const AuthPage: React.FC<AuthPageProps> = ({
   const [loginError, setLoginError] = useState<string | null>(null);
   const [isLoginBusy, setIsLoginBusy] = useState(false);
   const loginRequestInProgress = useRef(false);
+  const pendingAuthMode = useRef<'signin' | 'dev_signin' | 'signup'>('signin');
 
   // Sign Up Form State
   const [fullName, setFullName] = useState('');
-  const [studentId, setStudentId] = useState('');
   const [email, setEmail] = useState('');
-  const [department, setDepartment] = useState('');
-  const [faculty, setFaculty] = useState('');
-  const [level, setLevel] = useState('');
-  const [role, setRole] = useState<UserRole | ''>('');
-  const [studentPasscode, setStudentPasscode] = useState('');
-  const [repPasscode, setRepPasscode] = useState('');
+  const [accountRole, setAccountRole] = useState<'student' | 'lecturer' | 'dev_admin'>('student');
+  const [registrationInvitationCode, setRegistrationInvitationCode] = useState('');
+  const [devAuthorizationPasskey, setDevAuthorizationPasskey] = useState('');
+  const [devSignupError, setDevSignupError] = useState<string | null>(null);
+  const [isDevSignupBusy, setIsDevSignupBusy] = useState(false);
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [showSignupPassword, setShowSignupPassword] = useState(false);
@@ -89,24 +85,24 @@ export const AuthPage: React.FC<AuthPageProps> = ({
     }
   }, [pendingVerificationEmail]);
 
-  const handleModeChange = (nextMode: 'landing' | 'signin' | 'signup') => {
+  const handleModeChange = (nextMode: 'landing' | 'signin' | 'dev_signin' | 'signup') => {
     soundManager.playClick();
     setMode(nextMode);
+    if (nextMode === 'signin' || nextMode === 'dev_signin' || nextMode === 'signup') {
+      pendingAuthMode.current = nextMode;
+    }
     setLoginIdentifier('');
     setLoginPassword('');
     setFullName('');
-    setStudentId('');
     setEmail('');
-    setDepartment('');
-    setFaculty('');
-    setLevel('');
-    setRole('');
-    setStudentPasscode('');
-    setRepPasscode('');
+    setAccountRole('student');
+    setRegistrationInvitationCode('');
+    setDevAuthorizationPasskey('');
     setPassword('');
     setConfirmPassword('');
     setLoginError(null);
     setSignupError(null);
+    setDevSignupError(null);
     setVerificationError(null);
     setVerificationNotice(null);
   };
@@ -128,6 +124,14 @@ export const AuthPage: React.FC<AuthPageProps> = ({
       }
 
       const user = await signInFirebaseAccount(loginIdentifier, loginPassword);
+      if ((pendingAuthMode.current === 'dev_signin') !== (user.role === 'dev_admin')) {
+        await signOutFirebaseAccount();
+        soundManager.playError();
+        setLoginError(pendingAuthMode.current === 'dev_signin'
+          ? 'This sign-in path is restricted to Dev Admin accounts.'
+          : 'Dev administrators must use the dedicated management-console sign-in path.');
+        return;
+      }
       soundManager.playSuccess();
       onLoginSuccess(user);
     } catch (error) {
@@ -171,6 +175,15 @@ export const AuthPage: React.FC<AuthPageProps> = ({
         setVerificationNotice('Firebase has not marked this email as verified yet. Open the link in your inbox, then try again.');
         return;
       }
+      if ((pendingAuthMode.current === 'dev_signin') !== (user.role === 'dev_admin')) {
+        await signOutFirebaseAccount();
+        const expectedMode = pendingAuthMode.current === 'dev_signin' ? 'dev_signin' : 'signin';
+        setMode(expectedMode);
+        setLoginError(expectedMode === 'dev_signin'
+          ? 'This sign-in path is restricted to Dev Admin accounts.'
+          : 'Dev administrators must use the dedicated management-console sign-in path.');
+        return;
+      }
       soundManager.playSuccess();
       onLoginSuccess(user);
     } catch (error) {
@@ -200,22 +213,9 @@ export const AuthPage: React.FC<AuthPageProps> = ({
     e.preventDefault();
     setSignupError(null);
 
-    if (!role) {
+    if (!fullName.trim() || !email.trim()) {
       soundManager.playError();
-      setSignupError('Please choose whether you are registering as a student or lecturer.');
-      return;
-    }
-
-    if (
-      !fullName.trim() ||
-      !studentId.trim() ||
-      !email.trim() ||
-      !department.trim() ||
-      !faculty.trim() ||
-      !level
-    ) {
-      soundManager.playError();
-      setSignupError('Please complete all required personal, faculty, department, and academic fields.');
+      setSignupError('Please complete your name and institutional email.');
       return;
     }
 
@@ -231,51 +231,23 @@ export const AuthPage: React.FC<AuthPageProps> = ({
       return;
     }
 
-    if (role === 'student') {
-      try {
-        const isAuthorized = await validateStudentPasskey(studentPasscode);
-        if (!isAuthorized) {
-          soundManager.playError();
-          setSignupError('Invalid Student Authorization Passkey.');
-          return;
-        }
-      } catch (error) {
-        soundManager.playError();
-        setSignupError(firebaseErrorMessage(error));
-        return;
-      }
+    if (accountRole === 'dev_admin') {
+      await handleDevSignupSubmit(e);
+      return;
+    }
+    if (!registrationInvitationCode.trim()) {
+      soundManager.playError();
+      setSignupError('Enter the single-use invitation code issued to your email.');
+      return;
     }
 
-    // Lecturer check
-    if (role === 'lecturer') {
-      try {
-        const isAuthorized = await validateLecturerPasskey(repPasscode);
-        if (!isAuthorized) {
-          soundManager.playError();
-          setSignupError('Invalid Lecturer Authorization Passkey.');
-          return;
-        }
-      } catch (error) {
-        soundManager.playError();
-        setSignupError(firebaseErrorMessage(error));
-        return;
-      }
-    }
-
-    const newUser: AuthUser = {
-      id: `usr_${Date.now()}`,
+    const newUser = {
       fullName: fullName.trim(),
-      studentId: studentId.trim().toUpperCase(),
-      email: email.trim().toLowerCase(),
-      department: department.trim(),
-      faculty: faculty.trim(),
-      level,
-      role,
-      createdAt: new Date().toISOString()
+      email: email.trim().toLowerCase()
     };
 
     try {
-      await createFirebaseAccount(newUser, password);
+      await createFirebaseAccount(newUser, password, registrationInvitationCode, accountRole);
       soundManager.playSuccess();
       setVerificationEmail(newUser.email);
       setVerificationError(null);
@@ -284,6 +256,44 @@ export const AuthPage: React.FC<AuthPageProps> = ({
     } catch (error) {
       soundManager.playError();
       setSignupError(firebaseErrorMessage(error));
+    }
+  };
+
+  const handleDevSignupSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setDevSignupError(null);
+    if (!fullName.trim() || !email.trim() || !devAuthorizationPasskey.trim()) {
+      soundManager.playError();
+      setDevSignupError('Enter your name, email, and Dev Admin authorization passkey.');
+      return;
+    }
+    if (password.length < 6) {
+      soundManager.playError();
+      setDevSignupError('Password must be at least 6 characters.');
+      return;
+    }
+    if (password !== confirmPassword) {
+      soundManager.playError();
+      setDevSignupError('Passwords do not match.');
+      return;
+    }
+
+    setIsDevSignupBusy(true);
+    try {
+      await createDevAdminAccount({
+        fullName: fullName.trim(),
+        email: email.trim().toLowerCase()
+      }, password, devAuthorizationPasskey);
+      soundManager.playSuccess();
+      setVerificationEmail(email.trim().toLowerCase());
+      setVerificationError(null);
+      setVerificationNotice(`A verification link has been sent to ${email.trim().toLowerCase()}.`);
+      setMode('verify');
+    } catch (error) {
+      soundManager.playError();
+      setDevSignupError(firebaseErrorMessage(error));
+    } finally {
+      setIsDevSignupBusy(false);
     }
   };
 
@@ -478,7 +488,7 @@ export const AuthPage: React.FC<AuthPageProps> = ({
         {/* Card Box */}
         <div className="bg-white border border-slate-200/90 rounded-2xl p-6 sm:p-8 shadow-xl shadow-slate-200/50">
           {/* ======================= SIGN IN TAB ======================= */}
-          {mode === 'signin' && (
+          {(mode === 'signin' || mode === 'dev_signin') && (
             <div className="animate-in fade-in slide-in-from-bottom-2 duration-150">
               <div className="mb-5">
                 <div className="flex items-center gap-1.5 text-xs font-bold text-[#008751] mb-1">
@@ -488,10 +498,12 @@ export const AuthPage: React.FC<AuthPageProps> = ({
                   <span className="text-slate-400 font-mono font-medium text-[11px]">{timeString} {timeZoneShort && `(${timeZoneShort})`}</span>
                 </div>
                 <h2 className="text-lg sm:text-xl font-black text-slate-900">
-                  Welcome to your Portal
+                  {mode === 'dev_signin' ? 'Dev Management Console' : 'Welcome to your Portal'}
                 </h2>
                 <p className="text-xs sm:text-sm text-slate-500 mt-1">
-                  Sign in using the institutional email registered to your account.
+                  {mode === 'dev_signin'
+                    ? 'Sign in with the email and password for your Dev Admin account.'
+                    : 'Sign in using the institutional email registered to your account.'}
                 </p>
               </div>
 
@@ -568,13 +580,28 @@ export const AuthPage: React.FC<AuthPageProps> = ({
                     </>
                   ) : (
                     <>
-                      <span>Sign In to Portal</span>
+                      <span>{mode === 'dev_signin' ? 'Sign in to Dev Console' : 'Sign In to Portal'}</span>
                       <ArrowRight className="w-4 h-4" />
                     </>
                   )}
                 </button>
               </form>
 
+              {mode === 'dev_signin' && (
+                <p className="mt-5 text-center text-xs text-slate-500">
+                  Create Account to register as Dev Admin.
+                  <button
+                    type="button"
+                    onClick={() => {
+                      handleModeChange('signup');
+                      setAccountRole('dev_admin');
+                    }}
+                    className="font-bold text-indigo-700 underline-offset-2 hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-700"
+                  >
+                    Create Account
+                  </button>
+                </p>
+              )}
             </div>
           )}
 
@@ -583,24 +610,51 @@ export const AuthPage: React.FC<AuthPageProps> = ({
             <div className="animate-in fade-in slide-in-from-bottom-2 duration-150">
               <div className="mb-5">
                 <h2 className="text-lg sm:text-xl font-black text-slate-900">
-                  Register Academic Account
+                  {accountRole === 'dev_admin' ? 'Register Dev Admin Account' : 'Register Academic Account'}
                 </h2>
                 <p className="text-xs sm:text-sm text-slate-500 mt-1">
-                  Enter your personal and academic information to create an account.
+                  {accountRole === 'dev_admin'
+                    ? 'Use the Firebase-managed Dev Admin authorization passkey.'
+                    : 'Use the single-use invitation issued to your institutional email.'}
                 </p>
               </div>
 
-              {signupError && (
+              {(accountRole === 'dev_admin' ? devSignupError : signupError) && (
                 <div className="mb-4 p-3 rounded-xl bg-rose-50 border border-rose-200 text-rose-700 text-xs flex items-start gap-2.5">
                   <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
-                  <span>{signupError}</span>
+                  <span>{accountRole === 'dev_admin' ? devSignupError : signupError}</span>
                 </div>
               )}
-
-              <form onSubmit={handleSignupSubmit} className="space-y-4 text-xs sm:text-sm">
+              <form
+                onSubmit={accountRole === 'dev_admin' ? handleDevSignupSubmit : handleSignupSubmit}
+                className="space-y-4 text-xs sm:text-sm"
+              >
                 <div>
-                  <label className="block text-slate-700 font-bold mb-1">Full Legal Name</label>
+                  <label htmlFor="signup-role" className="mb-1 block font-bold text-slate-700">Account role</label>
+                  <select
+                    id="signup-role"
+                    value={accountRole}
+                    onChange={(event) => {
+                      const role = event.target.value;
+                      if (role === 'student' || role === 'lecturer' || role === 'dev_admin') {
+                        setAccountRole(role);
+                        setSignupError(null);
+                        setDevSignupError(null);
+                        setRegistrationInvitationCode('');
+                        setDevAuthorizationPasskey('');
+                      }
+                    }}
+                    className="min-h-[44px] w-full rounded-xl border border-slate-200 bg-slate-50 px-3.5 py-2.5 text-slate-900 focus:border-[#008751] focus:bg-white focus:outline-hidden focus:ring-2 focus:ring-[#008751]/20"
+                  >
+                    <option value="student">Student</option>
+                    <option value="lecturer">Lecturer</option>
+                    <option value="dev_admin">Dev Admin</option>
+                  </select>
+                </div>
+                <div>
+                  <label htmlFor="signup-full-name" className="block text-slate-700 font-bold mb-1">Full Legal Name</label>
                   <input
+                    id="signup-full-name"
                     type="text"
                     required
                     placeholder="e.g. Edidiong Bassey"
@@ -611,189 +665,53 @@ export const AuthPage: React.FC<AuthPageProps> = ({
                   />
                 </div>
 
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  <div>
-                    <label className="block text-slate-700 font-bold mb-1">
-                      {role === 'student' ? 'Matric / Reg Number' : 'Staff / Reg Number'}
-                    </label>
-                    <input
-                      type="text"
-                      required
-                      placeholder={role === 'student' ? 'e.g. 21/SC/CO/1090' : 'e.g. FAC/SC/CS/024'}
-                      value={studentId}
-                      onChange={(e) => setStudentId(e.target.value)}
-                      autoComplete="off"
-                      className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 text-slate-900 placeholder-slate-400 uppercase focus:outline-hidden focus:border-[#008751] focus:ring-2 focus:ring-[#008751]/20 focus:bg-white transition-all min-h-[44px]"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-slate-700 font-bold mb-1">Institutional Email</label>
-                    <input
-                      type="email"
-                      required
-                      placeholder="name@uniuyo.edu.ng"
-                      value={email}
-                      onChange={(e) => setEmail(e.target.value)}
-                      autoComplete="off"
-                      className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 text-slate-900 placeholder-slate-400 focus:outline-hidden focus:border-[#008751] focus:ring-2 focus:ring-[#008751]/20 focus:bg-white transition-all min-h-[44px]"
-                    />
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  <div>
-                    <label htmlFor="signup-faculty" className="block text-slate-700 font-bold mb-1">Faculty</label>
-                    <input
-                      id="signup-faculty"
-                      type="text"
-                      required
-                      placeholder="Enter your faculty"
-                      value={faculty}
-                      onChange={(e) => setFaculty(e.target.value)}
-                      autoComplete="off"
-                      className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 text-slate-900 placeholder-slate-400 focus:outline-hidden focus:border-[#008751] focus:ring-2 focus:ring-[#008751]/20 focus:bg-white transition-all min-h-[44px]"
-                    />
-                  </div>
-
-                  <div>
-                    <label htmlFor="signup-department" className="block text-slate-700 font-bold mb-1">Department</label>
-                    <input
-                      id="signup-department"
-                      type="text"
-                      required
-                      placeholder="Enter your department"
-                      value={department}
-                      onChange={(e) => setDepartment(e.target.value)}
-                      autoComplete="off"
-                      className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 text-slate-900 placeholder-slate-400 focus:outline-hidden focus:border-[#008751] focus:ring-2 focus:ring-[#008751]/20 focus:bg-white transition-all min-h-[44px]"
-                    />
-                  </div>
-                </div>
-
-                {/* Role Selector */}
                 <div>
-                  <label className="block text-slate-700 font-bold mb-1.5">Select Role</label>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                    <button
-                      type="button"
-                      aria-pressed={role === 'student'}
-                      onClick={() => {
-                        setRole('student');
-                        setLevel('');
-                      }}
-                      className={`p-3 rounded-xl border text-left cursor-pointer transition-all ${
-                        role === 'student'
-                          ? 'border-[#008751] bg-emerald-50/70 ring-2 ring-[#008751]/20'
-                          : 'border-slate-200 bg-slate-50 hover:bg-slate-100'
-                      }`}
-                    >
-                      <div className="flex items-center gap-2 mb-1">
-                        <GraduationCap className={`w-4 h-4 ${role === 'student' ? 'text-[#008751]' : 'text-slate-400'}`} />
-                        <span className="font-extrabold text-xs text-slate-900">Student</span>
-                      </div>
-                      <p className="text-[11px] text-slate-500">
-                        GPS check-ins, attendance timeline, verification slips.
-                      </p>
-                    </button>
-
-                    <button
-                      type="button"
-                      aria-pressed={role === 'lecturer'}
-                      onClick={() => {
-                        setRole('lecturer');
-                        setLevel('');
-                      }}
-                      className={`p-3 rounded-xl border text-left cursor-pointer transition-all ${
-                        role === 'lecturer'
-                          ? 'border-[#A50021] bg-red-50/70 ring-2 ring-[#A50021]/20'
-                          : 'border-slate-200 bg-slate-50 hover:bg-slate-100'
-                      }`}
-                    >
-                      <div className="flex items-center gap-2 mb-1">
-                        <BriefcaseBusiness className={`w-4 h-4 ${role === 'lecturer' ? 'text-[#A50021]' : 'text-slate-400'}`} />
-                        <span className="font-extrabold text-xs text-slate-900">Lecturer</span>
-                      </div>
-                      <p className="text-[11px] text-slate-500">
-                        Manage courses, open attendance sessions, and review reports.
-                      </p>
-                    </button>
-
-                  </div>
-                </div>
-
-                <div>
-                  <label htmlFor="signup-level" className="block text-slate-700 font-bold mb-1">
-                    {role === 'lecturer' ? 'Academic Rank' : 'Academic Level'}
-                  </label>
-                  <select
-                    id="signup-level"
+                  <label htmlFor="signup-email" className="block text-slate-700 font-bold mb-1">Institutional Email</label>
+                  <input
+                    id="signup-email"
+                    type="email"
                     required
-                    value={level}
-                    onChange={(e) => setLevel(e.target.value)}
-                    disabled={!role}
-                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 text-slate-900 focus:outline-hidden focus:border-[#008751] focus:ring-2 focus:ring-[#008751]/20 focus:bg-white transition-all min-h-[44px] disabled:cursor-not-allowed disabled:opacity-60"
-                  >
-                    <option value="" disabled>
-                      {role ? 'Choose your level or rank' : 'Choose a role first'}
-                    </option>
-                    {role === 'student' && (
-                      <>
-                        <option value="100L">100 Level</option>
-                        <option value="200L">200 Level</option>
-                        <option value="300L">300 Level</option>
-                        <option value="400L">400 Level</option>
-                      </>
-                    )}
-                    {role === 'lecturer' && (
-                      <>
-                        <option value="Lecturer">Lecturer</option>
-                        <option value="Senior Lecturer">Senior Lecturer</option>
-                        <option value="Professor">Professor</option>
-                      </>
-                    )}
-                  </select>
+                    placeholder="name@uniuyo.edu.ng"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    autoComplete="off"
+                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 text-slate-900 placeholder-slate-400 focus:outline-hidden focus:border-[#008751] focus:ring-2 focus:ring-[#008751]/20 focus:bg-white transition-all min-h-[44px]"
+                  />
                 </div>
 
-                {role === 'student' && (
-                  <div className="animate-in fade-in slide-in-from-top-2 duration-200 p-3 bg-emerald-50/80 border border-emerald-200 rounded-xl">
-                    <label htmlFor="student-authorization-passkey" className="mb-1 flex items-center gap-1.5 text-xs font-bold text-slate-800">
-                      <KeyRound className="h-3.5 w-3.5 text-[#008751]" />
-                      Student Authorization Passkey
+                {accountRole !== 'dev_admin' && <div className="animate-in fade-in slide-in-from-top-2 duration-200 p-3 bg-emerald-50/80 border border-emerald-200 rounded-xl">
+                  <label htmlFor="registration-invitation-code" className="mb-1 flex items-center gap-1.5 text-xs font-bold text-slate-800">
+                    <KeyRound className="h-3.5 w-3.5 text-[#008751]" />
+                    Single-use invitation code
+                  </label>
+                  <input
+                    id="registration-invitation-code"
+                    type="password"
+                    required
+                    placeholder="Enter the code issued to your email"
+                    value={registrationInvitationCode}
+                    onChange={(event) => setRegistrationInvitationCode(event.target.value)}
+                    autoComplete="off"
+                    className="w-full rounded-lg border border-emerald-200 bg-white px-3 py-2 text-xs text-slate-900 focus:border-[#008751] focus:outline-hidden focus:ring-2 focus:ring-[#008751]/20"
+                  />
+                </div>}
+
+                {accountRole === 'dev_admin' && (
+                  <div className="animate-in fade-in slide-in-from-top-2 duration-200 rounded-xl border border-indigo-200 bg-indigo-50/80 p-3">
+                    <label htmlFor="dev-signup-authorization" className="mb-1 flex items-center gap-1.5 text-xs font-bold text-slate-800">
+                      <KeyRound className="h-3.5 w-3.5 text-indigo-700" />
+                      Dev Admin authorization passkey
                     </label>
                     <input
-                      id="student-authorization-passkey"
+                      id="dev-signup-authorization"
                       type="password"
                       required
-                      placeholder="Enter student authorization code"
-                      value={studentPasscode}
-                      onChange={(event) => setStudentPasscode(event.target.value)}
+                      maxLength={256}
+                      minLength={12}
+                      value={devAuthorizationPasskey}
+                      onChange={(event) => setDevAuthorizationPasskey(event.target.value)}
                       autoComplete="off"
-                      className="w-full rounded-lg border border-emerald-200 bg-white px-3 py-2 text-xs text-slate-900 focus:border-[#008751] focus:outline-hidden focus:ring-2 focus:ring-[#008751]/20"
-                    />
-                  </div>
-                )}
-
-                {/* Lecturer accounts require staff authorization */}
-                {role === 'lecturer' && (
-                  <div className="animate-in fade-in slide-in-from-top-2 duration-200 p-3 bg-emerald-50/80 border border-emerald-200 rounded-xl">
-                    <div className="flex items-center justify-between mb-1">
-                      <label className="text-slate-800 font-bold text-xs flex items-center gap-1.5">
-                        <KeyRound className="w-3.5 h-3.5 text-[#008751]" />
-                        <span>Lecturer Authorization Passkey</span>
-                      </label>
-                      <span className="text-[10px] text-[#006B3F] font-extrabold bg-emerald-100 px-2 py-0.5 rounded">
-                        Firebase verified
-                      </span>
-                    </div>
-                    <input
-                      type="text"
-                      required
-                      placeholder="Enter lecturer authorization code"
-                      value={repPasscode}
-                      onChange={(e) => setRepPasscode(e.target.value)}
-                      autoComplete="off"
-                      className="w-full bg-white border border-emerald-200 rounded-lg px-3 py-2 text-slate-900 focus:outline-hidden focus:border-[#008751] focus:ring-2 focus:ring-[#008751]/20 text-xs"
+                      className="w-full rounded-lg border border-indigo-200 bg-white px-3 py-2 text-xs text-slate-900 focus:border-indigo-700 focus:outline-hidden focus:ring-2 focus:ring-indigo-700/20"
                     />
                   </div>
                 )}
@@ -838,10 +756,13 @@ export const AuthPage: React.FC<AuthPageProps> = ({
 
                 <button
                   type="submit"
-                  className="w-full bg-[#008751] hover:bg-[#006B3F] active:scale-98 text-white font-black py-3 rounded-xl transition-all shadow-md shadow-[#008751]/20 flex items-center justify-center gap-2 cursor-pointer min-h-[46px] mt-2 text-sm"
+                  disabled={accountRole === 'dev_admin' && isDevSignupBusy}
+                  aria-busy={accountRole === 'dev_admin' && isDevSignupBusy}
+                  className="w-full bg-[#008751] hover:bg-[#006B3F] active:scale-98 disabled:cursor-wait disabled:opacity-80 text-white font-black py-3 rounded-xl transition-all shadow-md shadow-[#008751]/20 flex items-center justify-center gap-2 cursor-pointer min-h-[46px] mt-2 text-sm"
                 >
-                  <span>Create Account & Verify Email</span>
-                  <ArrowRight className="w-4 h-4" />
+                  {accountRole === 'dev_admin' && isDevSignupBusy
+                    ? <><RefreshCw className="h-4 w-4 animate-spin" /><span>Verifying passkey…</span></>
+                    : <><span>{accountRole === 'dev_admin' ? 'Verify Passkey & Create Dev Admin Account' : 'Create Account & Verify Email'}</span><ArrowRight className="w-4 h-4" /></>}
                 </button>
               </form>
             </div>
