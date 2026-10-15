@@ -86,9 +86,51 @@ export interface DevAdminSnapshot {
 }
 
 export async function getDevAdminSnapshot(): Promise<DevAdminSnapshot> {
-  const getSnapshot = httpsCallable<void, DevAdminSnapshot>(firebaseFunctions, 'getDevAdminSnapshot');
-  const result = await getSnapshot();
-  return result.data;
+  const {
+    collection,
+    doc,
+    getDoc,
+    getDocs,
+    getFirestore
+  } = await loadFirestoreModule();
+  const firestore = getFirestore(app);
+  const collectionNames = [
+    'faculties',
+    'courses',
+    'timetable',
+    'sessions',
+    'records',
+    'notifications',
+    'students',
+    'userProfiles',
+    'auditLog',
+    'integrityAlerts'
+  ] as const;
+  const [snapshots, settingsSnapshot] = await Promise.all([
+    Promise.all(collectionNames.map((name) => getDocs(collection(firestore, name)))),
+    getDoc(doc(firestore, 'appConfig', 'devSettings'))
+  ]);
+  const toRows = <T,>(snapshot: (typeof snapshots)[number]): T[] =>
+    snapshot.docs.map((item) => ({ id: item.id, ...item.data() }) as T);
+  const auditLog = toRows<DevAdminSnapshot['auditLog'][number]>(snapshots[8])
+    .sort((a, b) => Date.parse(b.timestamp) - Date.parse(a.timestamp))
+    .slice(0, 2000);
+
+  return {
+    faculties: toRows<DevAdminSnapshot['faculties'][number]>(snapshots[0]),
+    courses: toRows<Course>(snapshots[1]),
+    timetable: toRows<TimetableEntry>(snapshots[2]),
+    sessions: toRows<AttendanceSession>(snapshots[3]),
+    records: toRows<AttendanceRecord>(snapshots[4]),
+    notifications: toRows<AttendanceNotification>(snapshots[5]),
+    students: toRows<StudentDetail>(snapshots[6]),
+    userProfiles: toRows<User>(snapshots[7]),
+    auditLog,
+    integrityAlerts: toRows<DevAdminSnapshot['integrityAlerts'][number]>(snapshots[9]),
+    appConfig: settingsSnapshot.exists()
+      ? [{ id: settingsSnapshot.id, ...settingsSnapshot.data() }]
+      : []
+  };
 }
 
 export async function runDevAdminAction<T = { success: boolean }>(

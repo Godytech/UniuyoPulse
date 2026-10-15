@@ -939,22 +939,6 @@ export const submitAttendanceCheckIn = onCall(async (request) => {
   return result.record;
 });
 
-export const getDevAdminSnapshot = onCall(async (request) => {
-  await requireDevAdmin(request);
-  const names = [
-    'faculties', 'courses', 'timetable', 'sessions', 'records',
-    'notifications', 'students', 'userProfiles', 'auditLog', 'integrityAlerts', 'appConfig'
-  ];
-  const entries = await Promise.all(names.map(async (name) => {
-    const snapshot = await db.collection(name).get();
-    const rows = snapshot.docs.map((item) => ({ id: item.id, ...item.data() }));
-    return [name, name === 'auditLog'
-      ? rows.sort((a, b) => Date.parse(b.timestamp) - Date.parse(a.timestamp)).slice(0, 2000)
-      : rows];
-  }));
-  return Object.fromEntries(entries);
-});
-
 export const logActivity = onCall(async (request) => {
   const user = requireUser(request);
   if (!user.token.email_verified) {

@@ -22,6 +22,10 @@ service cloud.firestore {
       return profileMatchesClaims() && request.auth.token.role in roles;
     }
 
+    function isDevAdmin() {
+      return hasRole(['dev_admin']);
+    }
+
     function isLecturer() {
       return hasRole(['lecturer']);
     }
@@ -38,7 +42,7 @@ service cloud.firestore {
     }
 
     match /courses/{documentId} {
-      allow read: if isSignedIn() && hasDepartment(resource.data);
+      allow read: if isDevAdmin() || (isSignedIn() && hasDepartment(resource.data));
       allow create, update: if canManageDepartmentAcademicData()
         && hasDepartment(request.resource.data);
       allow delete: if canManageDepartmentAcademicData()
@@ -46,7 +50,7 @@ service cloud.firestore {
     }
 
     match /timetable/{documentId} {
-      allow read: if isSignedIn() && hasDepartment(resource.data);
+      allow read: if isDevAdmin() || (isSignedIn() && hasDepartment(resource.data));
       allow create, update: if canManageDepartmentAcademicData()
         && hasDepartment(request.resource.data);
       allow delete: if canManageDepartmentAcademicData()
@@ -54,26 +58,26 @@ service cloud.firestore {
     }
 
     match /sessions/{documentId} {
-      allow read: if profileMatchesClaims() && hasDepartment(resource.data);
+      allow read: if isDevAdmin() || (profileMatchesClaims() && hasDepartment(resource.data));
       allow create, update, delete: if false;
     }
 
     match /records/{documentId} {
-      allow get: if profileMatchesClaims()
+      allow get: if isDevAdmin() || (profileMatchesClaims()
         && (
           resource.data.studentId == request.auth.uid
           || (canManageDepartmentAcademicData() && hasDepartment(resource.data))
-        );
-      allow list: if profileMatchesClaims()
+        ));
+      allow list: if isDevAdmin() || (profileMatchesClaims()
         && (
           resource.data.studentId == request.auth.uid
           || (canManageDepartmentAcademicData() && hasDepartment(resource.data))
-        );
+        ));
       allow create, update, delete: if false;
     }
 
     match /notifications/{documentId} {
-      allow read: if profileMatchesClaims() && hasDepartment(resource.data);
+      allow read: if isDevAdmin() || (profileMatchesClaims() && hasDepartment(resource.data));
       allow create, update, delete: if false;
     }
 
@@ -82,18 +86,53 @@ service cloud.firestore {
         && request.auth.token.email_verified == true
         && (
           request.auth.uid == uid
+          || isDevAdmin()
           || (canManageDepartmentAcademicData() && hasDepartment(resource.data))
         );
-      allow list: if canManageDepartmentAcademicData()
-        && hasDepartment(resource.data);
+      allow list: if isDevAdmin()
+        || (canManageDepartmentAcademicData() && hasDepartment(resource.data));
       allow create, update, delete: if false;
     }
 
     match /userProfiles/{uid} {
       allow get: if isSignedIn()
         && request.auth.token.email_verified == true
-        && request.auth.uid == uid;
-      allow list, create, update, delete: if false;
+        && (request.auth.uid == uid || isDevAdmin());
+      allow list: if isDevAdmin();
+      allow update: if profileMatchesClaims()
+        && request.auth.uid == uid
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+          'fullName',
+          'semester',
+          'academicSession'
+        ])
+        && request.resource.data.diff(resource.data).affectedKeys().hasAny([
+          'fullName',
+          'semester',
+          'academicSession'
+        ])
+        && request.resource.data.fullName is string
+        && request.resource.data.fullName.size() > 0
+        && request.resource.data.fullName.size() <= 120
+        && request.resource.data.semester in ['First Semester', 'Second Semester']
+        && request.resource.data.academicSession is string
+        && request.resource.data.academicSession.matches('^[0-9]{4}/[0-9]{4}$');
+      allow create, delete: if false;
+    }
+
+    match /faculties/{documentId} {
+      allow read: if isDevAdmin();
+      allow write: if false;
+    }
+
+    match /auditLog/{documentId} {
+      allow read: if isDevAdmin();
+      allow write: if false;
+    }
+
+    match /integrityAlerts/{documentId} {
+      allow read: if isDevAdmin();
+      allow write: if false;
     }
 
     match /sessionSecrets/{sessionId} {
@@ -105,7 +144,8 @@ service cloud.firestore {
     }
 
     match /appConfig/{documentId} {
-      allow read, write: if false;
+      allow get: if isDevAdmin() && documentId == 'devSettings';
+      allow list, write: if false;
     }
 
     match /securityAudit/{documentId} {
