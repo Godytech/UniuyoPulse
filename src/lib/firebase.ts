@@ -193,9 +193,34 @@ export async function getAttendanceRecords(
 export async function createFirebaseAccount(
   user: Pick<AuthUser, 'email' | 'fullName'>,
   password: string,
-  invitationCode: string,
-  requestedRole: 'student' | 'lecturer'
+  passkey: string,
+  academicDetails: {
+    role: 'student' | 'lecturer';
+    department: string;
+    faculty: string;
+    studentId: string;
+    level: string;
+  }
 ): Promise<void> {
+  const prepareRegistration = httpsCallable<
+    {
+      email: string;
+      fullName: string;
+      passkey: string;
+      role: 'student' | 'lecturer';
+      department: string;
+      faculty: string;
+      studentId: string;
+      level: string;
+    },
+    { registrationTicket: string }
+  >(firebaseFunctions, 'prepareAcademicRegistration');
+  const preparation = await prepareRegistration({
+    email: user.email.trim().toLowerCase(),
+    fullName: user.fullName.trim(),
+    passkey,
+    ...academicDetails
+  });
   const credential = await createUserWithEmailAndPassword(firebaseAuth, user.email, password);
   let registrationStarted = false;
   try {
@@ -203,9 +228,7 @@ export async function createFirebaseAccount(
     const completeRegistration = httpsCallable(firebaseFunctions, 'completeRegistration');
     registrationStarted = true;
     await completeRegistration({
-      invitationCode,
-      fullName: user.fullName,
-      requestedRole
+      registrationTicket: preparation.data.registrationTicket
     });
     await credential.user.getIdToken(true);
   } catch (error) {
@@ -214,7 +237,14 @@ export async function createFirebaseAccount(
       : '';
     if (
       !registrationStarted ||
-      ['functions/invalid-argument', 'functions/permission-denied', 'functions/unauthenticated'].includes(code)
+      [
+        'functions/already-exists',
+        'functions/failed-precondition',
+        'functions/invalid-argument',
+        'functions/permission-denied',
+        'functions/resource-exhausted',
+        'functions/unauthenticated'
+      ].includes(code)
     ) {
       await deleteUser(credential.user);
     }

@@ -84,18 +84,14 @@ function documentId(value, label) {
   return id;
 }
 
-function invitationHash(code) {
-  return createHash('sha256').update(code.trim()).digest('hex');
-}
-
-async function verifyDevAdminPasskey(request, passkey) {
+async function verifyAuthorizationPasskey(request, passkey, configId, attemptsCollection, roleLabel) {
   if (typeof passkey !== 'string' || passkey.length < 12 || passkey.length > 256) {
-    throw new HttpsError('permission-denied', 'Dev Admin authorization could not be verified.');
+    throw new HttpsError('permission-denied', `${roleLabel} authorization could not be verified.`);
   }
 
-  const authorization = await db.collection('appConfig').doc('devAuthorization').get();
+  const authorization = await db.collection('appConfig').doc(configId).get();
   if (!authorization.exists) {
-    throw new HttpsError('failed-precondition', 'Dev Admin registration is not configured.');
+    throw new HttpsError('failed-precondition', `${roleLabel} signup is not configured.`);
   }
   const config = authorization.data();
   if (
@@ -105,17 +101,17 @@ async function verifyDevAdminPasskey(request, passkey) {
     config.scryptR !== 8 ||
     config.scryptP !== 1
   ) {
-    throw new HttpsError('failed-precondition', 'Dev Admin registration is not configured correctly.');
+    throw new HttpsError('failed-precondition', `${roleLabel} signup is not configured correctly.`);
   }
 
   const source = request.rawRequest?.ip || 'unavailable';
   const rateLimitId = createHash('sha256').update(source).digest('hex');
-  const rateLimitRef = db.collection('devAuthorizationAttempts').doc(rateLimitId);
+  const rateLimitRef = db.collection(attemptsCollection).doc(rateLimitId);
   const priorAttempts = await rateLimitRef.get();
   const prior = priorAttempts.data();
   const windowStartedAt = prior?.windowStartedAt?.toMillis?.() ?? 0;
   if (prior && windowStartedAt + 15 * 60 * 1000 > Date.now() && prior.count >= 5) {
-    throw new HttpsError('resource-exhausted', 'Too many Dev Admin passkey attempts. Try again later.');
+    throw new HttpsError('resource-exhausted', `Too many ${roleLabel} passkey attempts. Try again later.`);
   }
 
   const actual = scryptSync(passkey, Buffer.from(config.passkeySalt, 'base64url'), 64, {
@@ -136,7 +132,7 @@ async function verifyDevAdminPasskey(request, passkey) {
         windowStartedAt: withinWindow ? currentData.windowStartedAt : FieldValue.serverTimestamp()
       });
     });
-    throw new HttpsError('permission-denied', 'Dev Admin authorization could not be verified.');
+    throw new HttpsError('permission-denied', `${roleLabel} authorization could not be verified.`);
   }
   await rateLimitRef.delete();
 }
@@ -147,7 +143,13 @@ export const prepareDevAdminRegistration = onCall(async (request) => {
     throw new HttpsError('invalid-argument', 'Enter a valid email address.');
   }
   const passkey = request.data?.passkey;
-  await verifyDevAdminPasskey(request, passkey);
+  await verifyAuthorizationPasskey(
+    request,
+    passkey,
+    'devAuthorization',
+    'devAuthorizationAttempts',
+    'Dev Admin'
+  );
 
   try {
     await auth.getUserByEmail(email);
@@ -164,6 +166,52 @@ export const prepareDevAdminRegistration = onCall(async (request) => {
   const ticketId = createHash('sha256').update(ticket).digest('hex');
   await db.collection('devAdminRegistrationTickets').doc(ticketId).create({
     email,
+    expiresAt: new Date(Date.now() + 5 * 60 * 1000),
+    createdAt: FieldValue.serverTimestamp()
+  });
+  return { registrationTicket: ticket };
+});
+
+export const prepareAcademicRegistration = onCall(async (request) => {
+  const email = text(request.data?.email, 'Email', 254).toLowerCase();
+  const fullName = text(request.data?.fullName, 'Full name', 120);
+  const role = request.data?.role;
+  const department = text(request.data?.department, 'Department', 120);
+  const faculty = text(request.data?.faculty, 'Faculty', 120);
+  const studentId = text(request.data?.studentId, role === 'student' ? 'Registration number' : 'Staff ID', 64);
+  const level = role === 'student' ? text(request.data?.level, 'Level', 20) : '';
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) || !['student', 'lecturer'].includes(role)) {
+    throw new HttpsError('invalid-argument', 'Email or signup role is invalid.');
+  }
+  await verifyAuthorizationPasskey(
+    request,
+    request.data?.passkey,
+    'registrationAuthorization',
+    'registrationAuthorizationAttempts',
+    'Student and Lecturer'
+  );
+
+  try {
+    await auth.getUserByEmail(email);
+    throw new HttpsError('already-exists', 'An account already exists for this email.');
+  } catch (error) {
+    if (error.code !== 'auth/user-not-found') throw error;
+  }
+  const existingProfile = await db.collection('userProfiles').where('email', '==', email).limit(1).get();
+  if (!existingProfile.empty) {
+    throw new HttpsError('already-exists', 'An account already exists for this email.');
+  }
+
+  const ticket = randomBytes(32).toString('base64url');
+  const ticketId = createHash('sha256').update(ticket).digest('hex');
+  await db.collection('academicRegistrationTickets').doc(ticketId).create({
+    email,
+    role,
+    fullName,
+    department,
+    faculty,
+    studentId: studentId.trim().toUpperCase(),
+    level,
     expiresAt: new Date(Date.now() + 5 * 60 * 1000),
     createdAt: FieldValue.serverTimestamp()
   });
@@ -290,60 +338,56 @@ export const completeDevAdminRegistration = onCall(async (request) => {
 export const completeRegistration = onCall(async (request) => {
   const user = requireUser(request);
   const email = text(user.token.email, 'Authenticated email').toLowerCase();
-  const code = text(request.data?.invitationCode, 'Invitation code', 256);
-  const fullName = text(request.data?.fullName, 'Full name', 120);
-  const requestedRole = request.data?.requestedRole;
-  const invitationRef = db.collection('registrationInvitations').doc(invitationHash(code));
+  const registrationTicket = text(request.data?.registrationTicket, 'Registration ticket', 128);
+  const ticketRef = db.collection('academicRegistrationTickets')
+    .doc(createHash('sha256').update(registrationTicket).digest('hex'));
   const profileRef = db.collection('userProfiles').doc(user.uid);
   const studentRef = db.collection('students').doc(user.uid);
 
   const result = await db.runTransaction(async (transaction) => {
-    const [invitationSnapshot, profileSnapshot] = await Promise.all([
-      transaction.get(invitationRef),
+    const [ticketSnapshot, profileSnapshot] = await Promise.all([
+      transaction.get(ticketRef),
       transaction.get(profileRef)
     ]);
-    if (!invitationSnapshot.exists || profileSnapshot.exists) {
-      throw new HttpsError('permission-denied', 'Invitation is invalid, already used, or the account is already registered.');
+    if (!ticketSnapshot.exists || profileSnapshot.exists) {
+      throw new HttpsError('permission-denied', 'Registration authorization is invalid, expired, or already used.');
     }
 
-    const invitation = invitationSnapshot.data();
+    const registration = ticketSnapshot.data();
     if (
-      invitation.email !== email ||
-      invitation.usedAt ||
-      !invitation.expiresAt ||
-      typeof invitation.expiresAt.toMillis !== 'function' ||
-      invitation.expiresAt.toMillis() <= Date.now() ||
-      !['student', 'lecturer'].includes(invitation.role) ||
-      !['student', 'lecturer'].includes(requestedRole) ||
-      invitation.role !== requestedRole ||
-      typeof invitation.department !== 'string' ||
-      !invitation.department.trim() ||
-      typeof invitation.studentId !== 'string' ||
-      !invitation.studentId.trim() ||
-      (invitation.role === 'student' &&
-        (typeof invitation.faculty !== 'string' ||
-          !invitation.faculty.trim() ||
-          typeof invitation.level !== 'string' ||
-          !invitation.level.trim()))
+      registration.email !== email ||
+      !registration.expiresAt ||
+      typeof registration.expiresAt.toMillis !== 'function' ||
+      registration.expiresAt.toMillis() <= Date.now() ||
+      !['student', 'lecturer'].includes(registration.role) ||
+      typeof registration.department !== 'string' ||
+      !registration.department.trim() ||
+      typeof registration.faculty !== 'string' ||
+      !registration.faculty.trim() ||
+      typeof registration.studentId !== 'string' ||
+      !registration.studentId.trim() ||
+      (registration.role === 'student' &&
+        (typeof registration.level !== 'string' || !registration.level.trim()))
     ) {
-      throw new HttpsError('permission-denied', 'Invitation is invalid, expired, or assigned to a different email.');
+      throw new HttpsError('permission-denied', 'Registration authorization is invalid, expired, or assigned to a different email.');
     }
 
     const profile = {
       id: user.uid,
       uid: user.uid,
-      fullName,
+      fullName: registration.fullName,
       email,
-      role: invitation.role,
-      studentId: invitation.studentId.trim().toUpperCase(),
-      department: invitation.department.trim(),
-      faculty: invitation.faculty?.trim() || '',
-      level: invitation.level?.trim() || '',
+      role: registration.role,
+      studentId: registration.studentId.trim().toUpperCase(),
+      department: registration.department.trim(),
+      faculty: registration.faculty.trim(),
+      level: registration.level?.trim() || '',
+      active: true,
       createdAt: new Date().toISOString()
     };
-    transaction.update(invitationRef, { usedAt: FieldValue.serverTimestamp(), usedBy: user.uid });
     transaction.create(profileRef, profile);
-    if (invitation.role !== 'lecturer') {
+    transaction.delete(ticketRef);
+    if (registration.role === 'student') {
       transaction.create(studentRef, toStudentDetail(user.uid, profile));
     }
     return { role: profile.role, department: profile.department };

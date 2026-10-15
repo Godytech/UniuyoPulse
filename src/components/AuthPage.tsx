@@ -67,8 +67,12 @@ export const AuthPage: React.FC<AuthPageProps> = ({
   const [fullName, setFullName] = useState('');
   const [email, setEmail] = useState('');
   const [accountRole, setAccountRole] = useState<'student' | 'lecturer' | 'dev_admin'>('student');
-  const [registrationInvitationCode, setRegistrationInvitationCode] = useState('');
+  const [signupAuthorizationPasskey, setSignupAuthorizationPasskey] = useState('');
   const [devAuthorizationPasskey, setDevAuthorizationPasskey] = useState('');
+  const [department, setDepartment] = useState('');
+  const [faculty, setFaculty] = useState('');
+  const [academicId, setAcademicId] = useState('');
+  const [level, setLevel] = useState('');
   const [devSignupError, setDevSignupError] = useState<string | null>(null);
   const [isDevSignupBusy, setIsDevSignupBusy] = useState(false);
   const [password, setPassword] = useState('');
@@ -96,8 +100,12 @@ export const AuthPage: React.FC<AuthPageProps> = ({
     setFullName('');
     setEmail('');
     setAccountRole('student');
-    setRegistrationInvitationCode('');
+    setSignupAuthorizationPasskey('');
     setDevAuthorizationPasskey('');
+    setDepartment('');
+    setFaculty('');
+    setAcademicId('');
+    setLevel('');
     setPassword('');
     setConfirmPassword('');
     setLoginError(null);
@@ -235,9 +243,15 @@ export const AuthPage: React.FC<AuthPageProps> = ({
       await handleDevSignupSubmit(e);
       return;
     }
-    if (!registrationInvitationCode.trim()) {
+    if (
+      !signupAuthorizationPasskey.trim() ||
+      !department.trim() ||
+      !faculty.trim() ||
+      !academicId.trim() ||
+      (accountRole === 'student' && !level.trim())
+    ) {
       soundManager.playError();
-      setSignupError('Enter the single-use invitation code issued to your email.');
+      setSignupError('Complete your affiliation details and enter the Student/Lecturer signup passkey.');
       return;
     }
 
@@ -247,7 +261,13 @@ export const AuthPage: React.FC<AuthPageProps> = ({
     };
 
     try {
-      await createFirebaseAccount(newUser, password, registrationInvitationCode, accountRole);
+      await createFirebaseAccount(newUser, password, signupAuthorizationPasskey, {
+        role: accountRole,
+        department: department.trim(),
+        faculty: faculty.trim(),
+        studentId: academicId.trim(),
+        level: accountRole === 'student' ? level.trim() : ''
+      });
       soundManager.playSuccess();
       setVerificationEmail(newUser.email);
       setVerificationError(null);
@@ -279,6 +299,7 @@ export const AuthPage: React.FC<AuthPageProps> = ({
     }
 
     setIsDevSignupBusy(true);
+    pendingAuthMode.current = 'dev_signin';
     try {
       await createDevAdminAccount({
         fullName: fullName.trim(),
@@ -614,8 +635,8 @@ export const AuthPage: React.FC<AuthPageProps> = ({
                 </h2>
                 <p className="text-xs sm:text-sm text-slate-500 mt-1">
                   {accountRole === 'dev_admin'
-                    ? 'Use the Firebase-managed Dev Admin authorization passkey.'
-                    : 'Use the single-use invitation issued to your institutional email.'}
+                    ? 'Only Dev Admin signup requires the Firebase-managed authorization passkey.'
+                    : 'Students and lecturers use the separate signup passkey and sign in with their own email and password.'}
                 </p>
               </div>
 
@@ -640,7 +661,7 @@ export const AuthPage: React.FC<AuthPageProps> = ({
                         setAccountRole(role);
                         setSignupError(null);
                         setDevSignupError(null);
-                        setRegistrationInvitationCode('');
+                        setSignupAuthorizationPasskey('');
                         setDevAuthorizationPasskey('');
                       }
                     }}
@@ -679,22 +700,86 @@ export const AuthPage: React.FC<AuthPageProps> = ({
                   />
                 </div>
 
-                {accountRole !== 'dev_admin' && <div className="animate-in fade-in slide-in-from-top-2 duration-200 p-3 bg-emerald-50/80 border border-emerald-200 rounded-xl">
-                  <label htmlFor="registration-invitation-code" className="mb-1 flex items-center gap-1.5 text-xs font-bold text-slate-800">
-                    <KeyRound className="h-3.5 w-3.5 text-[#008751]" />
-                    Single-use invitation code
-                  </label>
-                  <input
-                    id="registration-invitation-code"
-                    type="password"
-                    required
-                    placeholder="Enter the code issued to your email"
-                    value={registrationInvitationCode}
-                    onChange={(event) => setRegistrationInvitationCode(event.target.value)}
-                    autoComplete="off"
-                    className="w-full rounded-lg border border-emerald-200 bg-white px-3 py-2 text-xs text-slate-900 focus:border-[#008751] focus:outline-hidden focus:ring-2 focus:ring-[#008751]/20"
-                  />
-                </div>}
+                {accountRole !== 'dev_admin' && (
+                  <>
+                    <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                      <div>
+                        <label htmlFor="signup-department" className="mb-1 block font-bold text-slate-700">Department</label>
+                        <input
+                          id="signup-department"
+                          type="text"
+                          required
+                          maxLength={120}
+                          value={department}
+                          onChange={(event) => setDepartment(event.target.value)}
+                          autoComplete="organization-title"
+                          className="min-h-[44px] w-full rounded-xl border border-slate-200 bg-slate-50 px-3.5 py-2.5 text-slate-900 focus:border-[#008751] focus:bg-white focus:outline-hidden focus:ring-2 focus:ring-[#008751]/20"
+                        />
+                      </div>
+                      <div>
+                        <label htmlFor="signup-faculty" className="mb-1 block font-bold text-slate-700">Faculty</label>
+                        <input
+                          id="signup-faculty"
+                          type="text"
+                          required
+                          maxLength={120}
+                          value={faculty}
+                          onChange={(event) => setFaculty(event.target.value)}
+                          className="min-h-[44px] w-full rounded-xl border border-slate-200 bg-slate-50 px-3.5 py-2.5 text-slate-900 focus:border-[#008751] focus:bg-white focus:outline-hidden focus:ring-2 focus:ring-[#008751]/20"
+                        />
+                      </div>
+                    </div>
+                    <div className={`grid grid-cols-1 gap-3 ${accountRole === 'student' ? 'sm:grid-cols-2' : ''}`}>
+                      <div>
+                        <label htmlFor="signup-academic-id" className="mb-1 block font-bold text-slate-700">
+                          {accountRole === 'student' ? 'Registration number' : 'Staff ID'}
+                        </label>
+                        <input
+                          id="signup-academic-id"
+                          type="text"
+                          required
+                          maxLength={64}
+                          value={academicId}
+                          onChange={(event) => setAcademicId(event.target.value)}
+                          autoComplete="off"
+                          className="min-h-[44px] w-full rounded-xl border border-slate-200 bg-slate-50 px-3.5 py-2.5 text-slate-900 focus:border-[#008751] focus:bg-white focus:outline-hidden focus:ring-2 focus:ring-[#008751]/20"
+                        />
+                      </div>
+                      {accountRole === 'student' && (
+                        <div>
+                          <label htmlFor="signup-level" className="mb-1 block font-bold text-slate-700">Level</label>
+                          <input
+                            id="signup-level"
+                            type="text"
+                            required
+                            maxLength={20}
+                            placeholder="e.g. 200L"
+                            value={level}
+                            onChange={(event) => setLevel(event.target.value)}
+                            className="min-h-[44px] w-full rounded-xl border border-slate-200 bg-slate-50 px-3.5 py-2.5 text-slate-900 focus:border-[#008751] focus:bg-white focus:outline-hidden focus:ring-2 focus:ring-[#008751]/20"
+                          />
+                        </div>
+                      )}
+                    </div>
+                    <div className="animate-in fade-in slide-in-from-top-2 duration-200 rounded-xl border border-emerald-200 bg-emerald-50/80 p-3">
+                      <label htmlFor="signup-authorization" className="mb-1 flex items-center gap-1.5 text-xs font-bold text-slate-800">
+                        <KeyRound className="h-3.5 w-3.5 text-[#008751]" />
+                        Student/Lecturer signup passkey
+                      </label>
+                      <input
+                        id="signup-authorization"
+                        type="password"
+                        required
+                        minLength={12}
+                        maxLength={256}
+                        value={signupAuthorizationPasskey}
+                        onChange={(event) => setSignupAuthorizationPasskey(event.target.value)}
+                        autoComplete="off"
+                        className="w-full rounded-lg border border-emerald-200 bg-white px-3 py-2 text-xs text-slate-900 focus:border-[#008751] focus:outline-hidden focus:ring-2 focus:ring-[#008751]/20"
+                      />
+                    </div>
+                  </>
+                )}
 
                 {accountRole === 'dev_admin' && (
                   <div className="animate-in fade-in slide-in-from-top-2 duration-200 rounded-xl border border-indigo-200 bg-indigo-50/80 p-3">

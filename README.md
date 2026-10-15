@@ -15,10 +15,10 @@ lecturers manage courses, open sessions, and review attendance reports.
   Firebase-stored Dev Admin authorization passkey; course reps cannot grant
   this role.
 
-Student and lecturer accounts require a single-use invitation issued by an
-administrator. The invitation, not browser-submitted registration fields,
-determines role and academic affiliation. Dev Admin registration instead
-requires the separate server-verified Dev Admin authorization passkey.
+Student and lecturer accounts sign up with the shared Firebase-stored academic
+signup passkey and provide their academic affiliation during registration.
+Dev Admin registration instead requires its separate Firebase-stored
+authorization passkey. All new accounts verify their email before signing in.
 
 ## Run locally
 
@@ -38,10 +38,10 @@ requires the separate server-verified Dev Admin authorization passkey.
 ## Trusted Firebase setup
 
 The browser is not trusted to grant roles or write attendance results.
-Callable Functions issue invitations, create profiles and role claims, validate
-attendance check-ins, manage sessions, and save semester tables. Firestore
-rules scope reads to the signed-in account or its department and deny client
-writes to sensitive collections.
+Callable Functions validate the signup passkeys, create profiles and role
+claims, validate attendance check-ins, manage sessions, and save semester
+tables. Firestore rules scope reads to the signed-in account or its department
+and deny client writes to sensitive collections.
 
 1. Use Node.js 20 for `functions/`. In that folder install the function
    dependencies with `npm install`. Install the Firebase CLI separately if it
@@ -68,15 +68,23 @@ writes to sensitive collections.
    `firebase deploy --only firestore:rules` and release the updated web app as
    a coordinated cutover. Old clients will be denied by the new rules. Do not
    use the new web app before its Functions are deployed.
-6. A lecturer can issue invitations using the Admin SDK script. From
-   `functions/`, run
-   `node scripts/issue-registration-invitation.js <email> <student|lecturer> <department> <registration-or-staff-id> [faculty] [level]`.
-   Verify the person's identity and institutional details before issuing the
-   invitation. Student invitations also require faculty and level. Send the generated code
-   privately to the exact email address it is bound to. It expires after
-   seven days and can be used only once. Treat invitation codes as credentials:
-   do not put them in tickets, logs, source control, or chat.
-7. Users verify their invited email before signing in. Lecturers can assign
+6. Configure the separate Student/Lecturer signup passkey once per Firebase
+   project. From `functions/`, using trusted Admin SDK credentials, run:
+
+   ```powershell
+   $env:SIGNUP_PASSKEY_PROJECT_ID = "your-firebase-project-id"
+   node scripts/set-signup-passkey.js
+   ```
+
+   The script prints the passkey once and stores only its salted scrypt hash in
+   `appConfig/registrationAuthorization`. Firestore rules deny client access
+   to this document. Anyone with this shared passkey can register as either a
+   Student or a Lecturer, so provide it only to authorized campus users and
+   rotate it immediately if exposed. Users enter their faculty, department,
+   registration number or staff ID, and (for Students) level in the signup
+   form, then verify their email before signing in.
+7. Dev Admins use the separate authorization passkey described below.
+   Lecturers can assign
    `course_rep_admin` or `assistant_course_rep` in the Student Directory.
    Users whose role changed must sign out and back in to refresh their tokens.
 8. Configure the Dev Admin signup authorization passkey once per Firebase
@@ -114,7 +122,7 @@ writes to sensitive collections.
    demo dataset.
 
 Do not publish permissive legacy rules or make the
-`appConfig/devAuthorization` document readable to clients. Existing accounts
+`appConfig/devAuthorization` or `appConfig/registrationAuthorization` document readable to clients. Existing accounts
 from the earlier passkey flow do not automatically receive custom role claims.
 Verify each user's identity and existing role, then run
 `node scripts/migrate-existing-user.js <verified-auth-uid> <role> <department> <registration-or-staff-id> [faculty] [level]`
@@ -123,12 +131,14 @@ and level. Existing academic and attendance documents missing
 department/ownership fields need a separately reviewed data migration. Back up
 and verify existing data before changing rules or migrating accounts.
 
-The Dev Admin signup passkey is a shared authorization credential, not a
-WebAuthn hardware passkey; individual Dev Admin accounts use Firebase
-email/password authentication. It is hashed in Firestore and verified only by
-the callable backend, with failed attempts rate-limited. Dev Admin data reads
-and overrides use authenticated callable Functions; Firestore rules continue
-to deny client writes to sensitive collections. Never put
+Both signup passkeys are shared authorization credentials, not WebAuthn
+hardware passkeys. The Student/Lecturer passkey authorizes self-selected
+academic roles; verify that it is distributed only to eligible users.
+Individual accounts use Firebase email/password authentication. Passkeys are
+hashed in Firestore and verified only by the callable backend, with failed
+attempts rate-limited. Dev Admin data reads and overrides use authenticated
+callable Functions; Firestore rules continue to deny client writes to
+sensitive collections. Never put
 Firebase Admin credentials in `VITE_*` variables, browser code,
 `.env` files, or source control. The Firebase web API key is public client
 configuration; restrict it to required APIs and authorized websites. Firestore
